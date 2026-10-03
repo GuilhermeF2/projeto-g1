@@ -22,7 +22,7 @@ Arquivo: `dados/simulacao_turismo_brasil.csv` (base simulada, nunca editada).
 
 ## 3. Tecnologias
 
-Python, Pandas, Matplotlib, Seaborn, Streamlit, SQLAlchemy + SQLite e GitHub.
+Python, Pandas, Matplotlib, Seaborn, Plotly, Streamlit, SQLAlchemy + SQLite e GitHub.
 
 ---
 
@@ -44,9 +44,9 @@ projeto-g1/
 
 ## 5. Funcionalidades
 
-**Intermediárias:** filtros múltiplos (ano, região, UF, temporada), KPIs dinâmicos, análise temporal, visualizações comparativas e dashboard organizado em abas.
+**Intermediárias:** filtros múltiplos (ano, região, UF, cidade, temporada), KPIs dinâmicos, gráficos interativos (Plotly, com zoom, hover e animação por ano), análise temporal, visualizações comparativas (comparação de cidades) e dashboard organizado em 9 abas.
 
-**Avançadas:** persistência em SQLite com SQLAlchemy (consulta SQL no dashboard), séries temporais avançadas (média móvel de 12 meses, índice sazonal, variação anual) e correlação estatística (matriz de correlação).
+**Avançadas:** mapa interativo das cidades (Plotly), persistência em SQLite com SQLAlchemy (consultas SQL no dashboard), séries temporais avançadas (média móvel de 12 meses, índice sazonal, variação anual) e correlação estatística (matriz de correlação e dispersão interativa).
 
 ---
 
