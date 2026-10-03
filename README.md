@@ -77,6 +77,6 @@ jupyter nbconvert --to notebook --execute --inplace notebooks/analise_turismo.ip
 
 ## 8. Links
 
-- Repositório GitHub: https://github.com/SEU-USUARIO/projeto-g1
-- Página do projeto (GitHub Pages): https://SEU-USUARIO.github.io/projeto-g1/
+- Repositório GitHub: https://github.com/GuilhermeF2/projeto-g1
+- Página do projeto (GitHub Pages): https://GuilhermeF2.github.io/projeto-g1/
 - Dashboard (Streamlit Community Cloud): https://SEU-APP.streamlit.app
