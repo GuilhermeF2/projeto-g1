@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turismo no Brasil (2015-2024)</title>
+<style>
+  :root {
+    --verde: #2a9d8f;
+    --laranja: #e76f51;
+    --texto: #1f2933;
+    --suave: #52606d;
+    --fundo: #f5f7fa;
+    --cartao: #ffffff;
+    --borda: #e4e7eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--texto);
+    background: var(--fundo);
+    line-height: 1.6;
+  }
+  header {
+    background: linear-gradient(135deg, #264653, var(--verde));
+    color: #fff;
+    padding: 64px 20px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 12px; font-size: 2.4rem; }
+  header p { margin: 0 auto; max-width: 720px; font-size: 1.1rem; opacity: .92; }
+  .botoes { margin-top: 28px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .botoes a {
+    padding: 12px 22px; border-radius: 8px; text-decoration: none; font-weight: 600;
+    background: #fff; color: #264653;
+  }
+  .botoes a.secundario { background: transparent; color: #fff; border: 2px solid #fff; }
+  main { max-width: 1000px; margin: 0 auto; padding: 32px 20px 64px; }
+  section { margin-bottom: 40px; }
+  h2 { border-left: 5px solid var(--verde); padding-left: 12px; margin-bottom: 16px; }
+  .cartao {
+    background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 20px;
+  }
+  .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+  .kpi { text-align: center; }
+  .kpi strong { display: block; font-size: 1.6rem; color: var(--verde); }
+  .kpi span { color: var(--suave); font-size: .9rem; }
+  .graficos { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .graficos figure { margin: 0; }
+  .graficos img { width: 100%; border: 1px solid var(--borda); border-radius: 8px; background: #fff; }
+  .graficos figcaption { font-size: .9rem; color: var(--suave); margin-top: 6px; }
+  ul { padding-left: 20px; }
+  code, pre { background: #eef1f4; border-radius: 6px; }
+  code { padding: 2px 6px; }
+  pre { padding: 14px; overflow-x: auto; }
+  footer { text-align: center; color: var(--suave); padding: 24px 20px; font-size: .9rem; }
+  a { color: var(--verde); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧳 Turismo no Brasil (2015-2024)</h1>
+  <p>Análise e visualização de dados de 37 cidades brasileiras com Python, Pandas, Matplotlib, Seaborn e Streamlit.</p>
+  <div class="botoes">
+    <a href="https://SEU-APP.streamlit.app">Abrir o dashboard</a>
+    <a class="secundario" href="https://github.com/SEU-USUARIO/projeto-g1">Código no GitHub</a>
+  </div>
+</header>
+
+<main>
+
+  <section>
+    <h2>Problema</h2>
+    <div class="cartao">
+      <p>Como o turismo evoluiu entre 2015 e 2024? Onde estão o fluxo de turistas e o faturamento, existe alta temporada e quais variáveis (ocupação hoteleira, gasto médio, eventos, temperatura) se relacionam com o resultado?</p>
+      <p>A base é simulada: 4.440 registros mensais (37 cidades x 120 meses), 14 colunas, sem nulos nem duplicados.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Indicadores-chave</h2>
+    <div class="grade">
+      <div class="cartao kpi"><strong>1,14 bi</strong><span>turistas no período</span></div>
+      <div class="cartao kpi"><strong>R$ 443 bi</strong><span>faturamento total</span></div>
+      <div class="cartao kpi"><strong>R$ 678</strong><span>gasto médio ponderado</span></div>
+      <div class="cartao kpi"><strong>60%</strong><span>ocupação hoteleira média</span></div>
+      <div class="cartao kpi"><strong>15%</strong><span>turistas estrangeiros</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Gráficos da análise</h2>
+    <div class="graficos">
+      <figure><img src="imagens/evolucao_anual.png" alt="Turistas e faturamento por ano"><figcaption>Evolução anual: fluxo estável (+3% de 2015 a 2024).</figcaption></figure>
+      <figure><img src="imagens/regioes.png" alt="Faturamento por região"><figcaption>O Sudeste lidera por ter mais cidades; por cidade, as regiões se equivalem.</figcaption></figure>
+      <figure><img src="imagens/sazonalidade.png" alt="Índice sazonal"><figcaption>Índice sazonal entre 94 e 104: sem alta temporada definida.</figcaption></figure>
+      <figure><img src="imagens/serie_temporal.png" alt="Série temporal com média móvel"><figcaption>Média móvel de 12 meses praticamente horizontal.</figcaption></figure>
+      <figure><img src="imagens/correlacao.png" alt="Matriz de correlação"><figcaption>Correlações entre -0,03 e +0,03.</figcaption></figure>
+      <figure><img src="imagens/ranking_cidades.png" alt="Top 10 cidades"><figcaption>Top 10 cidades por turistas, com totais muito próximos.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Principais conclusões</h2>
+    <div class="cartao">
+      <ul>
+        <li><strong>Fluxo estável:</strong> cerca de +3% de 2015 a 2024; 2020 recua apenas 4%, sem o choque da pandemia.</li>
+        <li><strong>Sem alta temporada:</strong> a coluna <code>nivel_temporada</code> não se relaciona com o número de turistas.</li>
+        <li><strong>Sudeste:</strong> cerca de 35% do faturamento por reunir 13 das 37 cidades.</li>
+        <li><strong>Sem relações entre variáveis:</strong> o faturamento não corresponde a turistas x gasto médio.</li>
+        <li><strong>Qualidade:</strong> 260 registros com estrangeiros acima do total foram ajustados.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>O que o projeto entrega</h2>
+    <div class="cartao">
+      <ul>
+        <li><strong>Notebook</strong> com 10 etapas: leitura, limpeza, atributos, análise exploratória, KPIs, gráficos e conclusão.</li>
+        <li><strong>Dashboard Streamlit</strong> com filtros múltiplos, KPIs dinâmicos e 8 abas (visão geral, regiões, cidades, sazonalidade, série temporal, correlações, SQL e dados).</li>
+        <li><strong>Banco SQLite</strong> criado com SQLAlchemy e consultado em SQL dentro do dashboard.</li>
+        <li><strong>Séries temporais avançadas</strong> (média móvel, índice sazonal) e <strong>correlação estatística</strong>.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Links</h2>
+    <div class="cartao">
+      <ul>
+        <li>Repositório: <a href="https://github.com/SEU-USUARIO/projeto-g1">github.com/SEU-USUARIO/projeto-g1</a></li>
+        <li>Dashboard: <a href="https://SEU-APP.streamlit.app">SEU-APP.streamlit.app</a></li>
+        <li>Notebook: <a href="notebooks/analise_turismo.ipynb">notebooks/analise_turismo.ipynb</a></li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>Projeto G1 · Linguagem de Programação: Análise e Visualização de Dados com Python</footer>
+
+</body>
+</html>
