@@ -35,7 +35,6 @@ CAMINHO_BANCO = BASE_DIR / "database" / "turismo_brasil.sqlite"
 
 NOMES_MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
-# Nomes de exibição das colunas: sem "_", com maiúscula inicial, acentos e unidade
 NOMES_COLUNAS = {
     "ano": "Ano",
     "mes": "Mês",
@@ -58,7 +57,6 @@ NOMES_COLUNAS = {
     "ocupacao_media": "Ocupação média (%)"
 }
 
-# As 5 maiores capitais do país em população: formam a seleção inicial da comparação de cidades
 CAPITAIS = ["São Paulo", "Rio de Janeiro", "Brasília", "Salvador", "Fortaleza"]
 
 COORDENADAS = {
@@ -83,7 +81,6 @@ COORDENADAS = {
     "Caxias do Sul": (-29.168, -51.179)
 }
 
-# Estilo da página: cabeçalho, cartões de KPI, abas e animações de entrada
 st.markdown("""
 <style>
 .block-container { padding-top: 3.5rem; max-width: 1400px; }
@@ -127,10 +124,6 @@ button[data-baseweb="tab"][aria-selected="true"], [data-testid="stTab"][aria-sel
 </style>
 """, unsafe_allow_html=True)
 
-# Animações de entrada: só as barras, as linhas e os pontos se movem, nunca o gráfico inteiro.
-# Recomeçam toda vez que a aba volta a ser exibida ou que os filtros redesenham o gráfico.
-# Plotly: o contêiner do gráfico recebe uma chave "anim-<tipo>-plotly-..." (st.container(key=...)).
-# Matplotlib/Seaborn: mostrar_figura() grava a figura como SVG e marca barras e linhas com id "anim-<tipo>".
 ESCALONADO_CSS = ""
 for posicao in range(2, 41):
     ESCALONADO_CSS += (
@@ -187,8 +180,6 @@ st.markdown("""
 
 
 def mostrar_figura(fig, chave, tipo):
-    # Mostra a figura do Matplotlib/Seaborn como SVG, para animar só as barras ("barv", "barh"),
-    # as linhas ("linha"), as caixas ("caixa") ou os pontos e células ("pop"), e não a imagem toda
     for ax in fig.axes:
         if tipo in ("barv", "barh"):
             artistas = list(ax.patches)
@@ -224,13 +215,11 @@ def mostrar_figura(fig, chave, tipo):
 
 
 def mostrar_plotly(fig, chave, tipo, altura=420, ano_ms=600, voltar=True):
-    # O contêiner com chave "anim-<tipo>-plotly-..." permite ao CSS animar só as barras, linhas ou pontos
     with st.container(key=f"anim-{tipo}-plotly-{chave}-{ID_FILTRO}"):
         st.plotly_chart(ajustar_grafico(fig, altura, ano_ms, voltar), width="stretch")
 
 
 def formatar_dica(fig, modelo):
-    # Dica (tooltip) em português: o mesmo texto vale para todos os traços e quadros da animação
     fig.update_traces(hovertemplate=modelo)
     for quadro in fig.frames:
         for traco in quadro.data:
@@ -239,7 +228,6 @@ def formatar_dica(fig, modelo):
 
 @st.cache_resource
 def montar_corrida(faturamento_regiao_ano, modo_corrida):
-    # Guarda o gráfico pronto de cada modo, para não recalcular
     dados_corrida = (
         faturamento_regiao_ano
         .reset_index()
@@ -283,7 +271,6 @@ def corrida_regioes():
         fill_value=0
     )
 
-    # Abas internas trocam no navegador, sem chamar o servidor; as barras sobem a cada troca
     aba_acumulado, aba_ano = st.tabs(["Faturamento acumulado", "Faturamento do ano"])
     with aba_acumulado:
         fig = montar_corrida(faturamento_ano.cumsum(), "Faturamento acumulado")
@@ -297,13 +284,11 @@ def corrida_regioes():
 def carregar_dados_csv():
     df = pd.read_csv(CAMINHO_DADOS)
 
-    # Limpeza
     df = df.drop_duplicates().dropna()
     df["data"] = pd.to_datetime(df["data"])
     for coluna in ["regiao", "uf", "cidade", "nivel_temporada"]:
         df[coluna] = df[coluna].str.strip()
 
-    # Variáveis derivadas
     df["ano_mes"] = df["data"].dt.to_period("M").dt.to_timestamp()
     df["nome_mes"] = df["mes"].apply(lambda m: NOMES_MESES[m - 1])
     df["turistas_estrangeiros_ajustado"] = df[["turistas", "turistas_estrangeiros"]].min(axis=1)
@@ -349,13 +334,11 @@ def eixo_bilhoes(valor, posicao):
 
 def ajustar_grafico(fig, altura=420, ano_ms=600, voltar=True):
     margem_topo = fig.layout.margin.t if fig.layout.margin.t else 60
-    # separators=",." = padrão brasileiro: vírgula nos decimais e ponto nos milhares
     fig.update_layout(height=altura, margin=dict(t=margem_topo, l=10, r=10, b=10), legend_title_text="", separators=",.")
     for controle in fig.layout.sliders:
         controle.currentvalue.prefix = ""
     if fig.layout.updatemenus:
-        # ano_ms = tempo entre um ano e o seguinte. O ▶ reage em um quadro (300 ms; 500 ms nas animações
-        # lentas) e as pausas intercaladas completam o tempo de cada ano
+        # ano_ms = tempo entre dois anos; as pausas intercaladas completam esse tempo
         quadro_ms = 300 if ano_ms <= 600 else 500
         fig.layout.updatemenus[0].buttons[0].args[1]["frame"]["duration"] = quadro_ms
         fig.layout.updatemenus[0].buttons[0].args[1]["transition"]["duration"] = quadro_ms
@@ -366,7 +349,6 @@ def ajustar_grafico(fig, altura=420, ano_ms=600, voltar=True):
 
 
 def limitar_zoom(fig):
-    # O botão de zoom out não afasta o gráfico além da visão inicial: os limites vêm dos dados
     for nome, atributo in (("xaxis", "x"), ("yaxis", "y")):
         eixo = fig.layout[nome]
         if eixo.minallowed is not None:
@@ -392,7 +374,6 @@ def limitar_zoom(fig):
                     if dados is not None and len(dados) > 0:
                         categorias_todas |= set(np.asarray(dados).astype(str))
             if categorias_todas != categorias_iniciais:
-                # as categorias mudam de um ano para outro (ex.: o top 10 de cidades): não fixar o eixo
                 continue
             inicio, fim = -0.5, len(categorias_iniciais) - 0.5
         elif eixo.range is not None:
@@ -407,20 +388,16 @@ def limitar_zoom(fig):
                 todos = todos[~np.isnan(todos)]
                 inicio, fim = todos.min(), todos.max()
                 if any(getattr(b, "type", "") == "bar" for b in fig.data):
-                    # barras: a base é o zero e o Plotly deixa 5% de folga no topo
                     inicio, fim = min(inicio, 0), fim * 20 / 19
                 else:
                     folga = (fim - inicio) * 0.05
                     inicio, fim = inicio - folga, fim + folga
 
-        # a faixa visível inicial e o limite do zoom out são os mesmos (o eixo pode estar invertido)
         fig.update_layout({nome: dict(range=[inicio, fim], minallowed=min(inicio, fim), maxallowed=max(inicio, fim))})
 
 
 def intercalar_pausas(fig, pausas=1, voltar=True, pausas_fim=1):
-    # Depois de cada ano (menos do primeiro e do último) entram quadros de pausa idênticos ao ano.
-    # O Plotly usa o mesmo tempo para todos os quadros; assim o primeiro ano muda após um quadro
-    # e os seguintes após (pausas + 1) quadros. A guarda impede repetir a operação no gráfico em cache.
+    # O Plotly usa o mesmo tempo em todos os quadros: quadros de pausa alongam cada ano
     quadros = list(fig.frames)
     if len(quadros) < 3 or pausas < 1 or any(str(quadro.name).startswith("pausa-") for quadro in quadros):
         return
@@ -433,7 +410,6 @@ def intercalar_pausas(fig, pausas=1, voltar=True, pausas_fim=1):
                 pausa.name = f"pausa-{quadros[posicao].name}-{numero}"
                 novos.append(pausa)
     if voltar:
-        # No fim, o último ano fica 3 segundos parado e o gráfico volta ao primeiro ano
         for numero in range(pausas_fim):
             pausa = copy.deepcopy(quadros[-1])
             pausa.name = f"pausa-{quadros[-1].name}-{numero}"
@@ -447,8 +423,6 @@ def intercalar_pausas(fig, pausas=1, voltar=True, pausas_fim=1):
 df = carregar_dados_csv()
 engine = criar_banco_sqlite(df)
 
-# Ajustes de tela que o Streamlit e o Plotly não oferecem: eixos dos gráficos com mil/mi/bi em vez de k/M/B,
-# textos das listas em português e fechamento da lista de um filtro depois de cada escolha
 AJUSTES_JS = r"""
 <script>
 if (!window.__ajustesDashboard) {
@@ -543,7 +517,6 @@ if df_filtrado.empty:
     st.warning("Nenhum registro encontrado para os filtros selecionados. Ajuste os filtros na barra lateral.")
     st.stop()
 
-# Identifica o conjunto de filtros: quando muda, os gráficos são recriados e a animação de entrada recomeça
 ID_FILTRO = abs(hash((tuple(ano_sel), tuple(regiao_sel), tuple(uf_sel), tuple(cidade_sel), tuple(temporada_sel))))
 
 st.sidebar.caption(f"{formatar_numero(len(df_filtrado))} de {formatar_numero(len(df))} registros selecionados.")
@@ -795,7 +768,6 @@ with aba2:
 
 @st.fragment
 def comparar_cidades():
-    # Fragmento: escolher cidades ou a métrica recalcula só a comparação
     st.markdown("#### Compare cidades")
     col_f1, col_f2 = st.columns([2, 1])
     cidades_comp = col_f1.multiselect(
@@ -874,15 +846,12 @@ with aba3:
     )
     corrida["regiao"] = corrida["cidade"].map(mapa_regiao)
 
-    # O eixo vertical usa a posição (1 a 10) e o nome da cidade vai escrito na barra: com os nomes no
-    # eixo, o Plotly acumula todas as cidades que já apareceram e as barras saíam da tela depois de 2015
+    # Eixo = posição: com os nomes no eixo o Plotly acumula as cidades de todos os anos
     corrida["posicao"] = corrida.groupby("ano")["turistas"].rank(ascending=False, method="first").astype(int)
     ultima_posicao = corrida["posicao"].max()
     corrida["grupo"] = corrida["cidade"]
 
-    # Cada região precisa existir em todos os anos: o Plotly cria uma série por região a partir do primeiro
-    # ano, e as regiões que só aparecem depois perdiam as barras. As linhas extras ficam fora do gráfico
-    # (posição abaixo da última, tamanho zero, sem texto) e não aparecem.
+    # Linhas extras fora do gráfico: toda região precisa existir em todos os anos, senão faltam barras
     extras = [
         {"ano": ano, "cidade": "", "turistas": 0, "regiao": regiao, "posicao": ultima_posicao + 5, "grupo": f"vazio-{regiao}"}
         for ano in corrida["ano"].unique()
@@ -918,7 +887,6 @@ with aba3:
             barra.textposition = "inside"
             barra.insidetextanchor = "start"
             barra.cliponaxis = False
-    # Esta corrida é lenta de propósito: 3 segundos entre um ano e o seguinte (ano_ms=3000)
     mostrar_plotly(fig, "corrida-cidades", "barh", 500, ano_ms=3000)
 
     comparar_cidades()
@@ -964,10 +932,7 @@ def montar_mapa(dados_mapa, coluna_mapa, metrica_mapa, animar_mapa):
         labels={coluna_mapa: metrica_mapa, "regiao": "Região", "uf": "UF"},
         **argumentos_mapa
     )
-    # Limites do mapa = o mundo uma única vez: dá para afastar até ver todos os continentes, mas a vista
-    # nunca passa dos limites, então o mundo não se repete ao afastar, ao arrastar nem em tela cheia.
-    # Os valores ficam um grau dentro de -180/180: com os extremos exatos o maplibre falha ao criar o
-    # mapa dentro de uma aba escondida (tamanho zero) e o gráfico aparece em branco.
+    # Limites em ±179: com ±180 o maplibre falha em aba escondida e o mapa fica em branco
     casas_mapa = ",.0f" if coluna_mapa in ("faturamento_turismo", "turistas") else ",.1f"
     formatar_dica(
         fig,
@@ -980,7 +945,6 @@ def montar_mapa(dados_mapa, coluna_mapa, metrica_mapa, animar_mapa):
 
 @st.fragment
 def mapa_cidades():
-    # Fragmento: trocar o indicador ou ligar a animação recalcula só o mapa, sem rodar o app inteiro
     col_m1, col_m2 = st.columns([2, 1])
     metrica_mapa = col_m1.selectbox(
         "Indicador do mapa",
@@ -1103,11 +1067,9 @@ with aba5:
 
 @st.fragment
 def serie_interativa():
-    # Fragmento: ligar ou desligar a média móvel recalcula só este gráfico
     st.markdown("#### Versão interativa")
     mostrar_media = st.toggle("Mostrar média móvel de 12 meses", value=True)
 
-    # As colunas já levam o nome de exibição: a legenda e a dica mostram o mesmo texto
     serie_exibicao = serie.rename(columns={"turistas": "Turistas no mês", "media_movel_12m": "Média móvel de 12 meses"})
     colunas_serie = ["Turistas no mês", "Média móvel de 12 meses"] if mostrar_media else ["Turistas no mês"]
     fig = px.line(
@@ -1175,7 +1137,6 @@ with aba6:
 
 @st.fragment
 def dispersao_interativa():
-    # Fragmento: trocar os eixos recalcula só a dispersão, sem rodar o app inteiro
     st.markdown("#### Dispersão interativa: escolha as variáveis")
     col_x, col_y = st.columns(2)
     var_x = col_x.selectbox("Eixo X", colunas_corr, index=0, format_func=NOMES_COLUNAS.get, filter_mode=None)
@@ -1251,7 +1212,6 @@ with aba7:
 
 @st.fragment
 def consulta_sql():
-    # Fragmento: trocar a consulta recalcula só este trecho
     opcao_consulta = st.selectbox(
         "Escolha a consulta",
         ["Faturamento por ano e região", "Top 10 cidades por faturamento", "Médias por mês do ano"],
