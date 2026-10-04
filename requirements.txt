@@ -1,6 +1,7 @@
-streamlit
-pandas
-matplotlib
-seaborn
-plotly
-sqlalchemy
+streamlit==1.64.0
+pandas==2.3.3
+numpy==2.3.5
+matplotlib==3.11.2
+seaborn==0.13.2
+plotly==7.1.0
+sqlalchemy==2.0.44
