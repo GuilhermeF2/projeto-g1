@@ -96,6 +96,7 @@ span[data-baseweb="tag"], span[data-tag] { background-color: #2a9d8f !important;
     box-shadow: 0 10px 30px rgba(38, 70, 83, .25); animation: subir .7s ease both;
 }
 .hero p { margin: 0; font-size: 1.1rem; opacity: .95; }
+.hero p.autoria { margin-top: .6rem; font-size: .9rem; opacity: .85; }
 .hero .tag {
     display: inline-block; margin: .9rem .4rem 0 0; padding: .2rem .85rem; border-radius: 999px;
     background: rgba(255, 255, 255, .18); font-size: .85rem;
@@ -498,6 +499,7 @@ st.html(AJUSTES_JS, unsafe_allow_javascript=True)
 st.markdown("""
 <div class="hero">
     <p>Painel interativo de fluxo de turistas, faturamento e sazonalidade em 37 cidades brasileiras.</p>
+    <p class="autoria">Disciplina: Linguagem de Programação — Análise e Visualização de Dados com Python · Professor: Alexandre Neves Louzada · Aluno: Guilherme Felix</p>
     <span class="tag">37 cidades</span>
     <span class="tag">120 meses</span>
     <span class="tag">4.440 registros</span>
@@ -529,6 +531,12 @@ regiao_sel = st.sidebar.multiselect("Região", options=lista_regioes, default=li
 uf_sel = st.sidebar.multiselect("UF", options=lista_ufs, default=lista_ufs, filter_mode=None)
 cidade_sel = st.sidebar.multiselect("Cidade", options=lista_cidades, default=lista_cidades, filter_mode=None)
 temporada_sel = st.sidebar.multiselect("Nível de temporada", options=lista_temporadas, default=lista_temporadas, filter_mode=None)
+
+st.sidebar.caption(
+    "**Disciplina:** Linguagem de Programação — Análise e Visualização de Dados com Python  \n"
+    "**Professor:** Alexandre Neves Louzada  \n"
+    "**Aluno:** Guilherme Felix"
+)
 
 df_filtrado = df[
     (df["ano"].isin(ano_sel))
