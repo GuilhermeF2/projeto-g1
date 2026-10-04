@@ -1,6 +1,10 @@
 # Turismo no Brasil (2015-2024)
 
-Projeto G1 da disciplina **Linguagem de Programação: Análise e Visualização de Dados com Python**.
+Projeto G1 da disciplina **Linguagem de Programação — Análise e Visualização de Dados com Python**.
+
+- **Disciplina:** Linguagem de Programação — Análise e Visualização de Dados com Python
+- **Professor:** Alexandre Neves Louzada
+- **Aluno:** Guilherme Felix
 
 ---
 
