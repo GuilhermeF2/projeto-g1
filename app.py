@@ -115,6 +115,10 @@ button[data-baseweb="tab"]:hover, [data-testid="stTab"]:hover { background: rgba
 button[data-baseweb="tab"][aria-selected="true"], [data-testid="stTab"][aria-selected="true"] { background: rgba(42, 157, 143, .18); }
 [data-testid="stTab"][aria-selected="true"], [data-testid="stTab"][aria-selected="true"] p { color: #1f7a6f !important; }
 [data-testid="stTab"]:hover:not([aria-selected="true"]), [data-testid="stTab"]:hover:not([aria-selected="true"]) p { color: #31333f !important; }
+@media (prefers-color-scheme: dark) {
+    [data-testid="stTab"][aria-selected="true"], [data-testid="stTab"][aria-selected="true"] p { color: #5fd3c4 !important; }
+    [data-testid="stTab"]:hover:not([aria-selected="true"]), [data-testid="stTab"]:hover:not([aria-selected="true"]) p { color: #fafafa !important; }
+}
 [data-testid="stTab"]:focus, [data-testid="stTab"]:focus-visible, [data-testid="stTab"]:active {
     outline: none !important; box-shadow: none !important; border-color: transparent !important;
 }
@@ -179,7 +183,28 @@ st.markdown("""
 """ + ESCALONADO_CSS + "</style>", unsafe_allow_html=True)
 
 
+def escurecer_figura(fig):
+    claro, fundo, grade = "#fafafa", "#0e1117", "#3a3f4b"
+    fig.patch.set_facecolor(fundo)
+    for ax in fig.axes:
+        ax.set_facecolor(fundo)
+        ax.title.set_color(claro)
+        ax.xaxis.label.set_color(claro)
+        ax.yaxis.label.set_color(claro)
+        ax.tick_params(colors=claro)
+        ax.grid(color=grade)
+        for borda in ax.spines.values():
+            borda.set_color(grade)
+        legenda = ax.get_legend()
+        if legenda:
+            legenda.get_frame().set_facecolor(fundo)
+            for texto in legenda.get_texts():
+                texto.set_color(claro)
+
+
 def mostrar_figura(fig, chave, tipo):
+    if st.context.theme.type == "dark":
+        escurecer_figura(fig)
     for ax in fig.axes:
         if tipo in ("barv", "barh"):
             artistas = list(ax.patches)
@@ -325,11 +350,11 @@ def formatar_percentual(valor, casas=1):
 
 
 def eixo_milhoes(valor, posicao):
-    return f"{valor / 1e6:.0f} mi"
+    return f"{valor / 1e6:g}".replace(".", ",") + " mi"
 
 
 def eixo_bilhoes(valor, posicao):
-    return f"{valor / 1e9:.0f} bi"
+    return f"{valor / 1e9:g}".replace(".", ",") + " bi"
 
 
 def ajustar_grafico(fig, altura=420, ano_ms=600, voltar=True):
