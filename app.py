@@ -88,6 +88,8 @@ st.markdown("""
 [data-testid="stMetricValue"] > div { overflow: visible; text-overflow: clip; }
 [data-testid="stMetricLabel"] p { white-space: normal; }
 span[data-baseweb="tag"], span[data-tag] { background-color: #2a9d8f !important; }
+button[kind="primaryFormSubmit"] { background-color: #2a9d8f; border-color: #2a9d8f; transition: transform .2s ease, box-shadow .2s ease; }
+button[kind="primaryFormSubmit"]:hover { background-color: #2a9d8f; border-color: #2a9d8f; transform: translateY(-3px); box-shadow: 0 8px 18px rgba(42, 157, 143, .35); }
 @keyframes subir { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes aparecer { from { opacity: 0; } to { opacity: 1; } }
 .hero {
@@ -513,7 +515,7 @@ Onde estão o fluxo de turistas e o faturamento, existe alta temporada e quais v
 (ocupação hoteleira, gasto médio, eventos, temperatura) se relacionam com o resultado?
 
 A base simulada reúne 37 cidades em 5 regiões, com registros mensais de turistas, ocupação
-hoteleira, gasto médio, faturamento, eventos e temperatura. Use os filtros ao lado e passe o mouse
+hoteleira, gasto médio, faturamento, eventos e temperatura. Use os filtros ao lado (clique em Aplicar filtros para atualizar) e passe o mouse
 sobre os gráficos para explorar. Os gráficos com botão ▶ são animados por ano.
 """)
 
@@ -526,11 +528,13 @@ lista_ufs = sorted(df["uf"].unique())
 lista_cidades = sorted(df["cidade"].unique())
 lista_temporadas = ["Baixa", "Média", "Alta"]
 
-ano_sel = st.sidebar.multiselect("Ano", options=lista_anos, default=lista_anos, filter_mode=None)
-regiao_sel = st.sidebar.multiselect("Região", options=lista_regioes, default=lista_regioes, filter_mode=None)
-uf_sel = st.sidebar.multiselect("UF", options=lista_ufs, default=lista_ufs, filter_mode=None)
-cidade_sel = st.sidebar.multiselect("Cidade", options=lista_cidades, default=lista_cidades, filter_mode=None)
-temporada_sel = st.sidebar.multiselect("Nível de temporada", options=lista_temporadas, default=lista_temporadas, filter_mode=None)
+with st.sidebar.form("filtros", border=False):
+    ano_sel = st.multiselect("Ano", options=lista_anos, default=lista_anos, filter_mode=None)
+    regiao_sel = st.multiselect("Região", options=lista_regioes, default=lista_regioes, filter_mode=None)
+    uf_sel = st.multiselect("UF", options=lista_ufs, default=lista_ufs, filter_mode=None)
+    cidade_sel = st.multiselect("Cidade", options=lista_cidades, default=lista_cidades, filter_mode=None)
+    temporada_sel = st.multiselect("Nível de temporada", options=lista_temporadas, default=lista_temporadas, filter_mode=None)
+    st.form_submit_button("Aplicar filtros", type="primary", width="stretch")
 
 st.sidebar.caption(
     "**Disciplina:** Linguagem de Programação — Análise e Visualização de Dados com Python  \n"
