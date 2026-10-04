@@ -60,7 +60,7 @@ projeto-g1/
 - Fluxo estável: cerca de +3% de 2015 a 2024; 2020 cai apenas 4%.
 - Sem alta temporada: o índice sazonal fica entre 94 e 104.
 - O Sudeste lidera (cerca de 35% do faturamento) por ter 13 das 37 cidades; por cidade, as regiões se equivalem.
-- As correlações ficam entre -0,03 e +0,03 e o faturamento não corresponde a turistas x gasto médio.
+- As correlações com o faturamento ficam entre -0,03 e +0,03 e o faturamento não corresponde a turistas x gasto médio.
 
 ---
 

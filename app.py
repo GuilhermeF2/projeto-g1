@@ -118,10 +118,6 @@ button[data-baseweb="tab"]:hover, [data-testid="stTab"]:hover { background: rgba
 button[data-baseweb="tab"][aria-selected="true"], [data-testid="stTab"][aria-selected="true"] { background: rgba(42, 157, 143, .18); }
 [data-testid="stTab"][aria-selected="true"], [data-testid="stTab"][aria-selected="true"] p { color: #1f7a6f !important; }
 [data-testid="stTab"]:hover:not([aria-selected="true"]), [data-testid="stTab"]:hover:not([aria-selected="true"]) p { color: #31333f !important; }
-@media (prefers-color-scheme: dark) {
-    [data-testid="stTab"][aria-selected="true"], [data-testid="stTab"][aria-selected="true"] p { color: #5fd3c4 !important; }
-    [data-testid="stTab"]:hover:not([aria-selected="true"]), [data-testid="stTab"]:hover:not([aria-selected="true"]) p { color: #fafafa !important; }
-}
 [data-testid="stTab"]:focus, [data-testid="stTab"]:focus-visible, [data-testid="stTab"]:active {
     outline: none !important; box-shadow: none !important; border-color: transparent !important;
 }
@@ -494,6 +490,14 @@ if (!window.__ajustesDashboard) {
 }
 </script>
 """
+
+if st.context.theme.type == "dark":
+    st.markdown("""
+<style>
+[data-testid="stTab"][aria-selected="true"], [data-testid="stTab"][aria-selected="true"] p { color: #5fd3c4 !important; }
+[data-testid="stTab"]:hover:not([aria-selected="true"]), [data-testid="stTab"]:hover:not([aria-selected="true"]) p { color: #fafafa !important; }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("🧳 Turismo no Brasil (2015-2024)")
 st.html(AJUSTES_JS, unsafe_allow_javascript=True)
@@ -1236,13 +1240,16 @@ with aba7:
     dispersao_interativa()
 
     corr_fat = matriz_corr["faturamento_turismo"].drop("faturamento_turismo")
-    variavel_forte = corr_fat.abs().idxmax()
-    st.success(
-        f"A maior correlação com o faturamento é com {NOMES_COLUNAS[variavel_forte]}: "
-        f"{corr_fat[variavel_forte]:.2f}".replace(".", ",") + "."
-    )
+    if corr_fat.isna().all():
+        st.warning("Há poucos registros no recorte para calcular correlações. Amplie os filtros.")
+    else:
+        variavel_forte = corr_fat.abs().idxmax()
+        st.success(
+            f"A maior correlação com o faturamento é com {NOMES_COLUNAS[variavel_forte]}: "
+            f"{corr_fat[variavel_forte]:.2f}".replace(".", ",") + "."
+        )
     st.info("""
-    Na base completa todas as correlações ficam próximas de zero (entre -0,03 e +0,03). Mais turistas, maior ocupação
+    Na base completa as correlações com o faturamento ficam próximas de zero (entre -0,03 e +0,03); a maior da matriz (0,13, turistas x estrangeiros ajustado) é mecânica, pois o ajuste limita os estrangeiros ao total de turistas. Mais turistas, maior ocupação
     ou mais eventos não aparecem associados a maior faturamento, e o faturamento não corresponde a turistas x gasto
     médio. Escolha outros pares de variáveis na dispersão: a nuvem de pontos sempre fica espalhada, sem padrão.
     """)
