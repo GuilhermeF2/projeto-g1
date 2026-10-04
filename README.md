@@ -79,4 +79,4 @@ jupyter nbconvert --to notebook --execute --inplace notebooks/analise_turismo.ip
 
 - Repositório GitHub: https://github.com/GuilhermeF2/projeto-g1
 - Página do projeto (GitHub Pages): https://GuilhermeF2.github.io/projeto-g1/
-- Dashboard (Streamlit Community Cloud): https://SEU-APP.streamlit.app
+- Dashboard (Streamlit Community Cloud): https://guilhermef2-projeto-g1-app-pikhec.streamlit.app/
