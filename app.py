@@ -323,6 +323,18 @@ def carregar_dados_csv():
     return df
 
 
+@st.cache_data
+def resumir_tratamento():
+    bruto = pd.read_csv(CAMINHO_DADOS)
+    return {
+        "linhas": len(bruto),
+        "colunas": bruto.shape[1],
+        "nulos": int(bruto.isna().sum().sum()),
+        "duplicadas": int(bruto.duplicated().sum()),
+        "inconsistentes": int((bruto["turistas_estrangeiros"] > bruto["turistas"]).sum())
+    }
+
+
 @st.cache_resource
 def criar_banco_sqlite(df):
     CAMINHO_BANCO.parent.mkdir(exist_ok=True)
@@ -1380,6 +1392,37 @@ with aba8:
     consulta_sql()
 
 with aba9:
+    st.subheader("Tratamento e preparação da base")
+    resumo_tratamento = resumir_tratamento()
+    etapas_tratamento = pd.DataFrame({
+        "Etapa": [
+            "1. Leitura", "2. Valores nulos", "3. Linhas duplicadas", "4. Textos", "5. Datas",
+            "6. Consistência", "7. Novas colunas", "8. Persistência"
+        ],
+        "O que foi feito": [
+            "Leitura do CSV com o Pandas",
+            "Conferência e remoção de linhas com valores ausentes",
+            "Conferência e remoção de linhas repetidas",
+            "Remoção de espaços extras em região, UF, cidade e nível de temporada",
+            "Conversão da coluna de data e criação do mês de referência e do nome do mês",
+            "Turistas estrangeiros acima do total de turistas foram limitados ao total (coluna ajustada)",
+            "Percentual de estrangeiros e receita por turista",
+            "Gravação da tabela tratada no SQLite com SQLAlchemy"
+        ],
+        "Resultado": [
+            f"{formatar_numero(resumo_tratamento['linhas'])} linhas e {resumo_tratamento['colunas']} colunas",
+            f"{resumo_tratamento['nulos']} nulos encontrados",
+            f"{resumo_tratamento['duplicadas']} duplicadas encontradas",
+            "Categorias padronizadas",
+            "Período mensal de 2015 a 2024",
+            f"{formatar_numero(resumo_tratamento['inconsistentes'])} registros ajustados",
+            "2 colunas criadas",
+            "Tabela turismo no banco"
+        ]
+    })
+    st.dataframe(etapas_tratamento, width="stretch", hide_index=True)
+    st.caption("A base original não é alterada: a coluna de estrangeiros é preservada e os indicadores usam a versão ajustada.")
+
     st.subheader("Dados filtrados")
 
     colunas_tabela = [
@@ -1416,3 +1459,20 @@ então os dados simulados não sustentam relações causais.
 **Recomendação:** tratar a base como material de treino de análise e visualização. Em dados reais, vale incluir
 sazonalidade e impactos externos, como a pandemia, antes de usar os indicadores em decisões.
 """)
+
+with st.expander("Organização do projeto e tecnologias"):
+    st.markdown("**Fluxo dos dados:** CSV → Pandas (limpeza e atributos) → SQLite via SQLAlchemy → Streamlit (filtros, KPIs, gráficos) → publicação.")
+    st.code("""projeto-g1/
+├── app.py            dashboard Streamlit
+├── requirements.txt  bibliotecas com versões fixas
+├── README.md         documentação do projeto
+├── index.html        página do projeto (GitHub Pages)
+├── dados/            base original em CSV
+├── database/         banco SQLite gerado pelo app
+├── notebooks/        análise exploratória em 10 seções
+└── imagens/          figuras geradas no notebook""", language="text")
+    st.markdown(
+        "**Tecnologias:** Python, Pandas, Matplotlib, Seaborn, Plotly, Streamlit, SQLAlchemy e SQLite. "
+        "**Publicação:** GitHub (código), GitHub Pages (página) e Streamlit Community Cloud (dashboard). "
+        "Código-fonte: [github.com/GuilhermeF2/projeto-g1](https://github.com/GuilhermeF2/projeto-g1)."
+    )
