@@ -8,6 +8,7 @@ import matplotlib.ticker as mtick
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import seaborn as sns
 import streamlit as st
 from sqlalchemy import create_engine
@@ -54,7 +55,8 @@ NOMES_COLUNAS = {
     "pct_estrangeiros": "Estrangeiros (%)",
     "receita_por_turista": "Receita por turista (R$)",
     "faturamento": "Faturamento (R$)",
-    "ocupacao_media": "Ocupação média (%)"
+    "ocupacao_media": "Ocupação média (%)",
+    "cidades": "Cidades"
 }
 
 CAPITAIS = ["São Paulo", "Rio de Janeiro", "Brasília", "Salvador", "Fortaleza"]
@@ -571,19 +573,31 @@ gasto_ponderado = (df_filtrado["turistas"] * df_filtrado["gasto_medio"]).sum() /
 ocupacao_media = df_filtrado["ocupacao_hoteleira"].mean()
 pct_estrangeiros = df_filtrado["turistas_estrangeiros_ajustado"].sum() / total_turistas * 100
 
-turistas_por_ano = df_filtrado.groupby("ano")["turistas"].sum()
-if len(turistas_por_ano) > 1:
-    variacao_fluxo = (turistas_por_ano.iloc[-1] / turistas_por_ano.iloc[0] - 1) * 100
-    delta_fluxo = f"{formatar_percentual(variacao_fluxo)} ({turistas_por_ano.index[0]} → {turistas_por_ano.index[-1]})"
-else:
-    delta_fluxo = None
+serie_turistas = df_filtrado.groupby("ano")["turistas"].sum()
+serie_faturamento = df_filtrado.groupby("ano")["faturamento_turismo"].sum()
+serie_gasto = (df_filtrado["turistas"] * df_filtrado["gasto_medio"]).groupby(df_filtrado["ano"]).sum() / serie_turistas
+serie_ocupacao = df_filtrado.groupby("ano")["ocupacao_hoteleira"].mean()
+serie_estrangeiros = df_filtrado.groupby("ano")["turistas_estrangeiros_ajustado"].sum() / serie_turistas * 100
+
+
+def cartao_kpi(coluna, rotulo, valor, serie, em_pontos=False):
+    delta = None
+    if len(serie) > 1:
+        if em_pontos:
+            delta = f"{serie.iloc[-1] - serie.iloc[0]:+.1f}".replace(".", ",") + " p.p."
+        else:
+            delta = f"{(serie.iloc[-1] / serie.iloc[0] - 1) * 100:+.1f}%".replace(".", ",")
+    coluna.metric(rotulo, valor, delta=delta, chart_data=serie.tolist() if len(serie) > 1 else None, chart_type="area")
+
 
 col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("Turistas", formatar_numero(total_turistas), delta=delta_fluxo)
-col2.metric("Faturamento", formatar_moeda(total_faturamento))
-col3.metric("Gasto médio por turista", formatar_moeda(gasto_ponderado))
-col4.metric("Ocupação hoteleira média", formatar_percentual(ocupacao_media))
-col5.metric("Turistas estrangeiros", formatar_percentual(pct_estrangeiros))
+cartao_kpi(col1, "Turistas", formatar_numero(total_turistas), serie_turistas)
+cartao_kpi(col2, "Faturamento", formatar_moeda(total_faturamento), serie_faturamento)
+cartao_kpi(col3, "Gasto médio", formatar_moeda(gasto_ponderado), serie_gasto)
+cartao_kpi(col4, "Ocupação média", formatar_percentual(ocupacao_media), serie_ocupacao, em_pontos=True)
+cartao_kpi(col5, "Turistas estrangeiros", formatar_percentual(pct_estrangeiros), serie_estrangeiros, em_pontos=True)
+if len(serie_turistas) > 1:
+    st.caption(f"Setas e mini-gráficos comparam o primeiro e o último ano do filtro ({serie_turistas.index[0]} → {serie_turistas.index[-1]}).")
 
 st.divider()
 
@@ -600,7 +614,24 @@ aba1, aba2, aba3, aba4, aba5, aba6, aba7, aba8, aba9 = st.tabs([
     "Dados"
 ])
 
+def medidor(valor, titulo):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=valor,
+        number={"suffix": "%", "valueformat": ".1f"},
+        title={"text": titulo},
+        gauge={"axis": {"range": [0, 100]}, "bar": {"color": COR}, "bgcolor": "rgba(42, 157, 143, .15)", "borderwidth": 0}
+    ))
+    fig.update_layout(height=260, margin=dict(t=70, l=30, r=30, b=10), separators=",.")
+    return fig
+
+
 with aba1:
+    st.subheader("Medidores")
+    col_m1, col_m2 = st.columns(2)
+    col_m1.plotly_chart(medidor(ocupacao_media, "Ocupação hoteleira média"), width="stretch")
+    col_m2.plotly_chart(medidor(pct_estrangeiros, "Turistas estrangeiros"), width="stretch")
+
     st.subheader("Evolução anual")
 
     resumo_ano = (
@@ -795,6 +826,29 @@ with aba2:
     plt.tight_layout()
     mostrar_figura(fig, "uf", "barv")
 
+    st.markdown("#### Ranking de UFs")
+    ranking_ufs = (
+        df_filtrado.groupby(["uf", "regiao"])
+        .agg(cidades=("cidade", "nunique"), turistas=("turistas", "sum"), faturamento=("faturamento_turismo", "sum"))
+        .reset_index()
+        .sort_values("faturamento", ascending=False)
+    )
+    ranking_ufs["faturamento"] = (ranking_ufs["faturamento"] / 1e9).round(2)
+    ranking_ufs = ranking_ufs.rename(columns=NOMES_COLUNAS).rename(columns={"Faturamento (R$)": "Faturamento (R$ bi)"})
+    st.dataframe(
+        ranking_ufs,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Faturamento (R$ bi)": st.column_config.ProgressColumn(
+                "Faturamento (R$ bi)", min_value=0, max_value=float(ranking_ufs["Faturamento (R$ bi)"].max()), format="%.2f"
+            ),
+            "Turistas": st.column_config.ProgressColumn(
+                "Turistas", min_value=0, max_value=int(ranking_ufs["Turistas"].max()), format="localized"
+            )
+        }
+    )
+
     regiao_lider = resumo_regiao.iloc[0]
     participacao = regiao_lider["faturamento"] / resumo_regiao["faturamento"].sum() * 100
     st.success(
@@ -943,9 +997,22 @@ with aba3:
         .round(2)
         .sort_values("turistas", ascending=False)
         .reset_index()
-        .rename(columns=NOMES_COLUNAS)
     )
-    st.dataframe(tabela_cidades, width="stretch", hide_index=True)
+    tabela_cidades["faturamento"] = (tabela_cidades["faturamento"] / 1e9).round(2)
+    tabela_cidades = tabela_cidades.rename(columns=NOMES_COLUNAS).rename(columns={"Faturamento (R$)": "Faturamento (R$ bi)"})
+    st.dataframe(
+        tabela_cidades,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Turistas": st.column_config.ProgressColumn(
+                "Turistas", min_value=0, max_value=int(tabela_cidades["Turistas"].max()), format="localized"
+            ),
+            "Ocupação média (%)": st.column_config.ProgressColumn(
+                "Ocupação média (%)", min_value=0, max_value=100, format="%.1f"
+            )
+        }
+    )
 
     cidade_lider = ranking_cidades.iloc[0]
     st.success(f"A cidade mais visitada no recorte é {cidade_lider['cidade']}, com {formatar_numero(cidade_lider['turistas'])} turistas.")
