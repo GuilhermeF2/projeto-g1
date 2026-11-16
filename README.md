@@ -73,8 +73,10 @@ projeto-g1/
 │   └── analise_exploratoria.ipynb
 ├── src/
 │   ├── etl.py                    # leitura, limpeza, atributos, agregações e métricas
+│   ├── formatacao.py             # números no padrão brasileiro
 │   ├── visualizacao.py           # figuras estáticas e interativas
-│   └── gerar_artigo.py           # gera docs/index.html com os números calculados
+│   ├── gerar_artigo.py           # gera docs/index.html com os números calculados
+│   └── artigo.css                # estilo do artigo
 └── docs/                         # artigo publicado no GitHub Pages
     ├── index.html
     └── assets/                   # figuras e Plotly

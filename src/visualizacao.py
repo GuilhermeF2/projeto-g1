@@ -12,6 +12,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from plotly.subplots import make_subplots
 
 from src import etl
+from src.formatacao import dec, pct
 
 RAIZ = Path(__file__).resolve().parents[1]
 PASTA_FIGURAS = RAIZ / "docs" / "assets"
@@ -28,14 +29,6 @@ DIVERGENTE = LinearSegmentedColormap.from_list("laranja_azul", [LARANJA, "#f0efe
 FONTE = "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
 
 sns.set_theme(style="whitegrid", rc={"grid.color": GRADE, "axes.edgecolor": GRADE, "axes.labelcolor": CINZA})
-
-
-def formatar_bi(valor: float, casas: int = 1) -> str:
-    return f"{valor / 1e9:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-def formatar_pct(fracao: float, casas: int = 1) -> str:
-    return f"{fracao * 100:.{casas}f}".replace(".", ",") + "%"
 
 
 def _layout(fig: go.Figure, altura: int = 420) -> go.Figure:
@@ -66,9 +59,9 @@ def fig_evolucao_anual(df: pd.DataFrame) -> go.Figure:
                       "<br>Subcréditos: %{customdata[1]:,.0f}<extra></extra>",
     ))
     pico = anual.loc[anual["bi"].idxmax()]
-    vale = anual[(anual["ano"] >= 2013) & (anual["ano"] <= etl.ANO_COMPLETO_FINAL)].nsmallest(1, "bi").iloc[0]
+    vale = anual[(anual["ano"] >= etl.ANO_INICIO_VALE) & (anual["ano"] <= etl.ANO_COMPLETO_FINAL)].nsmallest(1, "bi").iloc[0]
     for linha, texto, deslocamento in ((pico, "Pico", -25), (vale, "Vale", -60)):
-        fig.add_annotation(x=linha["ano"], y=linha["bi"], text=f"{texto}: R$ {linha['bi']:,.1f} bi".replace(".", ","),
+        fig.add_annotation(x=linha["ano"], y=linha["bi"], text=f"{texto}: R$ {dec(linha['bi'])} bi",
                            showarrow=True, arrowhead=0, ay=deslocamento, font=dict(size=12, color=CINZA),
                            bgcolor="white")
     _layout(fig)
@@ -81,7 +74,7 @@ def fig_evolucao_anual(df: pd.DataFrame) -> go.Figure:
 
 
 def fig_serie_mensal(df: pd.DataFrame) -> go.Figure:
-    mensal = etl.resumo_mensal(df[df["ano"] <= etl.ANO_COMPLETO_FINAL])
+    mensal = etl.resumo_mensal(etl.anos_completos(df))
     mensal["bi"] = mensal["valor_contratado_reais"] / 1e9
     mensal["media_bi"] = mensal["media_movel_12m"] / 1e9
     fig = go.Figure()
@@ -92,7 +85,7 @@ def fig_serie_mensal(df: pd.DataFrame) -> go.Figure:
                              mode="lines", line=dict(color=AZUL_ESCURO, width=2.5),
                              hovertemplate="%{x|%m/%Y}<br>R$ %{y:,.1f} bi<extra>Média móvel de 12 meses</extra>"))
     pico = mensal.loc[mensal["bi"].idxmax()]
-    fig.add_annotation(x=pico["ano_mes"], y=pico["bi"], text=f"dez./2012: R$ {pico['bi']:,.1f} bi".replace(".", ","),
+    fig.add_annotation(x=pico["ano_mes"], y=pico["bi"], text=f"dez./2012: R$ {dec(pico['bi'])} bi",
                        showarrow=True, arrowhead=0, ax=60, ay=0, font=dict(size=12, color=CINZA))
     _layout(fig)
     fig.update_xaxes(title="Mês da contratação", tickformat="%Y")
@@ -101,7 +94,7 @@ def fig_serie_mensal(df: pd.DataFrame) -> go.Figure:
 
 
 def fig_sazonalidade_mensal(df: pd.DataFrame) -> go.Figure:
-    por_mes = df[df["ano"] <= etl.ANO_COMPLETO_FINAL].groupby("mes", observed=True)["valor_contratado_reais"].sum()
+    por_mes = etl.anos_completos(df).groupby("mes", observed=True)["valor_contratado_reais"].sum()
     participacao = por_mes / por_mes.sum() * 100
     nomes = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
     cores = [AZUL_ESCURO if mes >= 10 else AZUL_CLARO for mes in participacao.index]
@@ -124,10 +117,10 @@ def fig_porte(df: pd.DataFrame) -> go.Figure:
     cores = [RAMPA_PORTE[p] for p in resumo.index]
     fig = make_subplots(rows=1, cols=2, subplot_titles=("Valor (%)", "Mediana (R$ mi)"))
     fig.add_trace(go.Bar(x=rotulos, y=resumo["participacao"] * 100, marker_color=cores,
-                         text=[formatar_pct(v) for v in resumo["participacao"]], textposition="outside",
+                         text=[pct(v) for v in resumo["participacao"]], textposition="outside",
                          hovertemplate="%{x}: %{y:.1f}%<extra></extra>"), row=1, col=1)
     fig.add_trace(go.Bar(x=rotulos, y=resumo["mediana_subcredito"] / 1e6, marker_color=cores,
-                         text=[f"{v / 1e6:,.1f}".replace(".", ",") for v in resumo["mediana_subcredito"]],
+                         text=[dec(v / 1e6) for v in resumo["mediana_subcredito"]],
                          textposition="outside",
                          hovertemplate="%{x}: R$ %{y:,.2f} mi<extra></extra>"), row=1, col=2)
     _layout(fig, 400)
@@ -144,11 +137,11 @@ def fig_setor_regiao(df: pd.DataFrame) -> go.Figure:
                         subplot_titles=("Setor (%)", "Região (%)"))
     fig.add_trace(go.Bar(y=[s.capitalize() for s in setor["setor_bndes"]], x=setor["participacao"] * 100,
                          orientation="h", marker_color=AZUL,
-                         text=[formatar_pct(v) for v in setor["participacao"]], textposition="outside",
+                         text=[pct(v) for v in setor["participacao"]], textposition="outside",
                          hovertemplate="%{y}: %{x:.1f}%<extra></extra>"), row=1, col=1)
     cores = [AZUL_CLARO if r == etl.SEM_UF_UNICA else AZUL for r in regiao["regiao"]]
     fig.add_trace(go.Bar(y=regiao["regiao"], x=regiao["participacao"] * 100, orientation="h", marker_color=cores,
-                         text=[formatar_pct(v) for v in regiao["participacao"]], textposition="outside",
+                         text=[pct(v) for v in regiao["participacao"]], textposition="outside",
                          hovertemplate="%{y}: %{x:.1f}%<extra></extra>"), row=1, col=2)
     _layout(fig, 400)
     fig.update_layout(showlegend=False, bargap=0.3, margin=dict(t=40, r=40, l=20, b=40))
@@ -157,12 +150,8 @@ def fig_setor_regiao(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def _reembolsaveis(df: pd.DataFrame) -> pd.DataFrame:
-    return df[~etl.nao_reembolsavel(df)]
-
-
 def fig_dispersao(df: pd.DataFrame, amostra: int = 3000) -> go.Figure:
-    base = _reembolsaveis(df)
+    base = etl.reembolsaveis(df)
     base = base.sample(min(amostra, len(base)), random_state=42)
     fig = go.Figure()
     for rotulo, valor_inovacao, cor in (("Sem inovação", "NÃO", AZUL), ("Com inovação", "SIM", LARANJA)):
@@ -183,20 +172,20 @@ def fig_dispersao(df: pd.DataFrame, amostra: int = 3000) -> go.Figure:
 
 
 def fig_inovacao(df: pd.DataFrame) -> go.Figure:
-    base = _reembolsaveis(df)
+    base = etl.reembolsaveis(df)
     resumo = base.groupby("inovacao", observed=True).agg(
         valor=("valor_contratado_reais", "median"),
         prazo=("prazo_amortizacao_meses", "median"),
         juros=("juros", "median"),
     ).loc[["NÃO", "SIM"]]
     rotulos = ["Sem inovação", "Com inovação"]
-    painéis = (("R$ mi", resumo["valor"] / 1e6, "{:,.1f}"),
-               ("Meses", resumo["prazo"], "{:,.0f}"),
-               ("Juros (%)", resumo["juros"], "{:,.2f}"))
+    painéis = (("R$ mi", resumo["valor"] / 1e6, 1),
+               ("Meses", resumo["prazo"], 0),
+               ("Juros (%)", resumo["juros"], 2))
     fig = make_subplots(rows=1, cols=3, subplot_titles=[p[0] for p in painéis])
-    for coluna, (_, serie, formato) in enumerate(painéis, start=1):
+    for coluna, (_, serie, casas) in enumerate(painéis, start=1):
         fig.add_trace(go.Bar(x=rotulos, y=serie.values, marker_color=[AZUL, LARANJA],
-                             text=[formato.format(v).replace(".", ",") for v in serie.values], textposition="outside",
+                             text=[dec(v, casas) for v in serie.values], textposition="outside",
                              hovertemplate="%{x}: %{y:,.2f}<extra></extra>"), row=1, col=coluna)
         fig.update_yaxes(range=[0, serie.max() * 1.25], row=1, col=coluna)
     _layout(fig, 380)
@@ -207,8 +196,7 @@ def fig_inovacao(df: pd.DataFrame) -> go.Figure:
 def est_distribuicao_valores(df: pd.DataFrame) -> plt.Figure:
     fig, eixos = plt.subplots(1, 2, figsize=(12, 4.2))
     sns.histplot(df["log10_valor_contratado"].dropna(), bins=60, color=AZUL, ax=eixos[0])
-    q1, q3 = df["log10_valor_contratado"].quantile([0.25, 0.75])
-    limites = (q1 - 1.5 * (q3 - q1), q3 + 1.5 * (q3 - q1))
+    limites = etl.limites_outlier(df["log10_valor_contratado"])
     eixos[0].axvline(limites[0], color=LARANJA, linestyle="--", linewidth=1.2, label="Limites de outliers (1,5 × IQR)")
     eixos[0].axvline(limites[1], color=LARANJA, linestyle="--", linewidth=1.2)
     eixos[0].set_xlabel("log10 do valor contratado por subcrédito (R$)")
@@ -237,7 +225,7 @@ def est_lorenz(df: pd.DataFrame) -> plt.Figure:
     eixo.fill_between(populacao, acumulado, populacao, color=AZUL, alpha=0.12)
     eixo.set_xlabel("Proporção acumulada de clientes (do menor para o maior)")
     eixo.set_ylabel("Proporção acumulada do valor contratado")
-    eixo.text(0.05, 0.82, f"Gini = {etl.gini(por_cliente):.2f}".replace(".", ","), fontsize=12, color="#1f2937")
+    eixo.text(0.05, 0.82, f"Gini = {dec(etl.gini(por_cliente), 2)}", fontsize=12, color="#1f2937")
     eixo.legend(loc="lower right", frameon=False)
     fig.tight_layout()
     return fig
@@ -246,7 +234,7 @@ def est_lorenz(df: pd.DataFrame) -> plt.Figure:
 def est_correlacao(df: pd.DataFrame) -> plt.Figure:
     nomes = {"valor_contratado_reais": "Valor contratado", "juros": "Juros",
              "prazo_carencia_meses": "Prazo de carência", "prazo_amortizacao_meses": "Prazo de amortização"}
-    correlacao = etl.calcular_indicadores(df)["correlacao_reembolsaveis"].rename(index=nomes, columns=nomes)
+    correlacao = etl.correlacao_spearman(etl.reembolsaveis(df)).rename(index=nomes, columns=nomes)
     fig, eixo = plt.subplots(figsize=(6.2, 5))
     sns.heatmap(correlacao, annot=True, fmt=".2f", cmap=DIVERGENTE, vmin=-1, vmax=1, linewidths=2,
                 linecolor="white", cbar_kws={"label": "Correlação de Spearman"}, ax=eixo)

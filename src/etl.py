@@ -38,6 +38,8 @@ REGIOES = {
 REGIAO_POR_UF = {uf: regiao for regiao, ufs in REGIOES.items() for uf in ufs}
 SEM_UF_UNICA = "Sem UF única"
 ANO_COMPLETO_FINAL = 2025
+ANO_INICIO_VALE = 2013
+COLUNAS_CORRELACAO = ["valor_contratado_reais", "juros", "prazo_carencia_meses", "prazo_amortizacao_meses"]
 
 CORRECOES_AREA = {"AREA DE TRANSICAO ENERGETICA E CLIMA": "AREA DE TRANSICAO ENERGETICA E CLIMATICA"}
 
@@ -106,15 +108,18 @@ def criar_atributos(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def limites_outlier(serie: pd.Series) -> tuple[float, float]:
+    q1, q3 = serie.quantile([0.25, 0.75])
+    amplitude = q3 - q1
+    return q1 - 1.5 * amplitude, q3 + 1.5 * amplitude
+
+
 def sinalizar_inconsistencias(df: pd.DataFrame, colunas_originais: list[str]) -> pd.DataFrame:
     df = df.copy()
     df["flag_linha_repetida"] = df.duplicated(subset=colunas_originais, keep="first")
     df["flag_desembolso_acima_contratado"] = df["valor_desembolsado_reais"] > df["valor_contratado_reais"]
-    q1, q3 = df["log10_valor_contratado"].quantile([0.25, 0.75])
-    amplitude = q3 - q1
-    df["flag_outlier_valor"] = (df["log10_valor_contratado"] < q1 - 1.5 * amplitude) | (
-        df["log10_valor_contratado"] > q3 + 1.5 * amplitude
-    )
+    inferior, superior = limites_outlier(df["log10_valor_contratado"])
+    df["flag_outlier_valor"] = (df["log10_valor_contratado"] < inferior) | (df["log10_valor_contratado"] > superior)
     return df
 
 
@@ -223,26 +228,34 @@ def nao_reembolsavel(df: pd.DataFrame) -> pd.Series:
     return df["modalidade_de_apoio"].astype(str).str.startswith("NÃO")
 
 
+def reembolsaveis(df: pd.DataFrame) -> pd.DataFrame:
+    return df[~nao_reembolsavel(df)]
+
+
+def anos_completos(df: pd.DataFrame) -> pd.DataFrame:
+    return df[df["ano"] <= ANO_COMPLETO_FINAL]
+
+
+def correlacao_spearman(df: pd.DataFrame) -> pd.DataFrame:
+    return df[COLUNAS_CORRELACAO].astype(float).corr(method="spearman")
+
+
 def calcular_indicadores(df: pd.DataFrame) -> dict:
     """Números citados no artigo, calculados a partir da base tratada."""
     valor = "valor_contratado_reais"
     anual = resumo_anual(df).set_index("ano")
     completos = anual.loc[:ANO_COMPLETO_FINAL, "valor_contratado"]
-    mensal = df[df["ano"] <= ANO_COMPLETO_FINAL].groupby("ano_mes", observed=True)[valor].sum()
+    completos_df = anos_completos(df)
+    mensal = completos_df.groupby("ano_mes", observed=True)[valor].sum()
     pico_mes = mensal.idxmax()
     cliente_pico = df[df["ano_mes"] == pico_mes].groupby("cliente", observed=True)[valor].sum().nlargest(1)
     por_cliente = df.groupby("cnpj", observed=True)[valor].sum()
-    por_contrato = df.groupby("numero_do_contrato", observed=True)[valor].sum()
-    completos_df = df[df["ano"] <= ANO_COMPLETO_FINAL]
     mes_valor = completos_df.groupby("mes", observed=True)[valor].sum()
     mes_contagem = completos_df.groupby("mes", observed=True).size()
     trimestre = completos_df.assign(q4=completos_df[valor].where(completos_df["mes"] >= 10, 0)).groupby("ano")[["q4", valor]].sum()
     q4_por_ano = trimestre["q4"] / trimestre[valor]
     sem_2012 = completos_df[completos_df["ano"] != 2012]
-    reembolsavel = df[~nao_reembolsavel(df)]
-    colunas_corr = [valor, "juros", "prazo_carencia_meses", "prazo_amortizacao_meses"]
-    correlacao = reembolsavel[colunas_corr].astype(float).corr(method="spearman")
-    correlacao_geral = df[colunas_corr].astype(float).corr(method="spearman")
+    reembolsavel = reembolsaveis(df)
     inovacao = reembolsavel.groupby("inovacao", observed=True).agg(
         n=(valor, "size"),
         valor_mediano=(valor, "median"),
@@ -266,8 +279,8 @@ def calcular_indicadores(df: pd.DataFrame) -> dict:
         "anual": anual,
         "ano_pico": int(completos.idxmax()),
         "valor_pico": float(completos.max()),
-        "ano_vale": int(completos.loc[2013:].idxmin()),
-        "valor_vale": float(completos.loc[2013:].min()),
+        "ano_vale": int(completos.loc[ANO_INICIO_VALE:].idxmin()),
+        "valor_vale": float(completos.loc[ANO_INICIO_VALE:].min()),
         "media_2002_2008": periodo(2002, 2008),
         "media_2009_2014": periodo(2009, 2014),
         "media_2015_2019": periodo(2015, 2019),
@@ -276,7 +289,6 @@ def calcular_indicadores(df: pd.DataFrame) -> dict:
         "valor_mes_pico": float(mensal.max()),
         "cliente_mes_pico": str(cliente_pico.index[0]),
         "valor_cliente_mes_pico": float(cliente_pico.iloc[0]),
-        "participacao_mes": (mes_valor / mes_valor.sum()).to_dict(),
         "participacao_quarto_trimestre": float(mes_valor.loc[[10, 11, 12]].sum() / mes_valor.sum()),
         "anos_q4_acima_uniforme": int((q4_por_ano > 0.25).sum()),
         "anos_completos": int(len(q4_por_ano)),
@@ -290,18 +302,14 @@ def calcular_indicadores(df: pd.DataFrame) -> dict:
         "regiao": resumo_por(df, "regiao"),
         "uf": resumo_por(df, "uf"),
         "gini_clientes": gini(por_cliente),
-        "gini_contratos": gini(por_contrato),
-        "gini_subcreditos": gini(df[valor]),
         "top10_clientes": participacao_topo(por_cliente, 10),
         "top1pct_clientes": participacao_topo(por_cliente, max(1, int(len(por_cliente) * 0.01))),
         "maiores_clientes": df.groupby("cliente", observed=True)[valor].sum().nlargest(5),
-        "mediana_contrato": float(por_contrato.median()),
-        "media_contrato": float(por_contrato.mean()),
         "reembolsaveis": int(len(reembolsavel)),
         "participacao_nao_reembolsavel_linhas": float(nao_reembolsavel(df).mean()),
         "participacao_nao_reembolsavel_valor": float(df.loc[nao_reembolsavel(df), valor].sum() / df[valor].sum()),
-        "correlacao_reembolsaveis": correlacao,
-        "correlacao_geral": correlacao_geral,
+        "correlacao_reembolsaveis": correlacao_spearman(reembolsavel),
+        "correlacao_geral": correlacao_spearman(df),
         "inovacao": inovacao,
         "participacao_inovacao_linhas": float((df["inovacao"] == "SIM").mean()),
         "taxa_execucao": float(df["valor_desembolsado_reais"].sum() / df[valor].sum()),

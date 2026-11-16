@@ -8,14 +8,14 @@ from __future__ import annotations
 import html
 import inspect
 import json
+import shutil
 from datetime import date
 from pathlib import Path
-
-import shutil
 
 import plotly
 
 from src import etl, visualizacao as viz
+from src.formatacao import bi, dec, num, pct
 
 RAIZ = Path(__file__).resolve().parents[1]
 DESTINO = RAIZ / "docs" / "index.html"
@@ -29,31 +29,17 @@ INSTITUICAO = "Universidade LaSalle"
 REPOSITORIO = "https://github.com/GuilhermeF2/projeto-g1"
 URL_FONTE = "https://dadosabertos.bndes.gov.br/dataset/operacoes-financiamento"
 DATA_ACESSO = "16 nov. 2026"
+VALOR, JUROS, CARENCIA, AMORTIZACAO = etl.COLUNAS_CORRELACAO
+PARES_CORRELACAO = [(VALOR, JUROS), (VALOR, CARENCIA), (VALOR, AMORTIZACAO), (JUROS, CARENCIA), (JUROS, AMORTIZACAO), (CARENCIA, AMORTIZACAO)]
 PALAVRAS_CHAVE = ["BNDES", "financiamento", "dados abertos", "análise exploratória", "Python", "princípios FAIR"]
 
 
-def num(valor: float) -> str:
-    return f"{valor:,.0f}".replace(",", ".")
-
-
-def dec(valor: float, casas: int = 1) -> str:
-    return f"{valor:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-def bi(valor: float, casas: int = 1) -> str:
-    return dec(valor / 1e9, casas)
-
-
-def pct(fracao: float, casas: int = 1) -> str:
-    return dec(fracao * 100, casas) + "%"
-
-
-BARRA = chr(92)
+BARRA_INVERTIDA = chr(92)
 
 
 def json_seguro(objeto) -> str:
     texto = json.dumps(objeto, ensure_ascii=False)
-    return texto.replace("<", BARRA + "u003c").replace(">", BARRA + "u003e").replace("&", BARRA + "u0026")
+    return texto.replace("<", BARRA_INVERTIDA + "u003c").replace(">", BARRA_INVERTIDA + "u003e").replace("&", BARRA_INVERTIDA + "u0026")
 
 
 def bloco_plotly(identificador: str, figura) -> str:
@@ -72,122 +58,50 @@ def trecho_codigo(*funcoes) -> str:
     return f"<pre><code>{html.escape(codigo)}</code></pre>"
 
 
-def montar_resumo(i: dict) -> str:
-    porte = i["porte"].set_index("porte_do_cliente")
-    setor = i["setor"].set_index("setor_bndes")
-    corr = i["correlacao_reembolsaveis"]
-    pares = [corr.iloc[0, 1], corr.iloc[0, 2], corr.iloc[0, 3], corr.iloc[1, 2], corr.iloc[1, 3], corr.iloc[2, 3]]
+def montar_resumo(ind: dict) -> str:
+    porte = ind["porte"].set_index("porte_do_cliente")
+    setor = ind["setor"].set_index("setor_bndes")
+    corr = ind["correlacao_reembolsaveis"]
+    pares = [corr.loc[a, b] for a, b in PARES_CORRELACAO]
     return (
-        f"Este estudo analisa {num(i['subcreditos'])} subcréditos de financiamentos não automáticos do Banco Nacional de "
+        f"Este estudo analisa {num(ind['subcreditos'])} subcréditos de financiamentos não automáticos do Banco Nacional de "
         f"Desenvolvimento Econômico e Social (BNDES), contratados entre janeiro de 2002 e setembro de 2026 e publicados "
         f"como dados abertos. Foi construído um pipeline determinístico em Python (pandas e NumPy) que lê o arquivo em "
         f"Windows-1252, converte tipos, padroniza categorias e sinaliza inconsistências sem descartar linhas, gravando a "
         f"base tratada em formatos abertos. A análise responde a três perguntas: a evolução do valor contratado, a "
         f"concentração por porte, setor, região e cliente, e a relação entre valor, prazo e juros. O valor anual passou "
-        f"por quatro regimes, com pico de R$ {bi(i['valor_pico'])} bilhões em {i['ano_pico']} e vale de R$ "
-        f"{bi(i['valor_vale'])} bilhões em {i['ano_vale']}, e {pct(i['participacao_quarto_trimestre'])} do valor é "
+        f"por quatro regimes, com pico de R$ {bi(ind['valor_pico'])} bilhões em {ind['ano_pico']} e vale de R$ "
+        f"{bi(ind['valor_vale'])} bilhões em {ind['ano_vale']}, e {pct(ind['participacao_quarto_trimestre'])} do valor é "
         f"contratado de outubro a dezembro. A concentração é elevada: clientes grandes respondem por "
         f"{pct(porte.loc['GRANDE', 'participacao'])} do valor, a infraestrutura por {pct(setor.loc['INFRAESTRUTURA', 'participacao'])} "
-        f"e o coeficiente de Gini entre clientes é {dec(i['gini_clientes'], 2)}. Nas operações reembolsáveis, valor, prazo e "
+        f"e o coeficiente de Gini entre clientes é {dec(ind['gini_clientes'], 2)}. Nas operações reembolsáveis, valor, prazo e "
         f"juros se associam de forma fraca (correlação de Spearman entre {dec(min(pares), 2)} e {dec(max(pares), 2)}), e o "
         f"apoio à inovação tem valores e prazos menores. Os resultados são descritivos, com limitações de cobertura e de "
         f"valores nominais. Código, dados e artigo seguem os princípios FAIR."
     )
 
 
-CSS = """
-    :root {
-      --primary: #1e3a8a; --primary-light: #3b82f6; --text: #1f2937; --text-muted: #4b5563; --bg: #f8fafc;
-      --surface: #ffffff; --border: #e2e8f0; --code-bg: #f1f5f9;
-      --font-serif: "Merriweather", Georgia, serif;
-      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: var(--font-serif); font-size: 1.05rem; line-height: 1.8; color: var(--text);
-           background-color: var(--bg); padding: 2rem 1rem; }
-    .container { max-width: 900px; margin: 0 auto; background: var(--surface); padding: 3.5rem 4rem;
-                 border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05); border: 1px solid var(--border); }
-    header { border-bottom: 2px solid var(--border); padding-bottom: 2rem; margin-bottom: 2.5rem; }
-    h1.paper-title { font-family: var(--font-sans); font-size: 2.1rem; font-weight: 700; line-height: 1.3;
-                     color: var(--primary); margin-bottom: 1.2rem; }
-    .meta-block { font-family: var(--font-sans); font-size: 0.95rem; color: var(--text-muted); margin-bottom: 0.8rem; }
-    .authors { font-weight: 600; color: var(--text); }
-    .affiliations { font-style: italic; }
-    .badges { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; font-family: var(--font-sans); }
-    .badge { padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.78rem; font-weight: 600;
-             background: var(--code-bg); border: 1px solid var(--border); color: var(--primary); }
-    .repo-badge { display: inline-block; margin-top: 1rem; padding: 0.4rem 0.8rem; background: var(--code-bg);
-                  border: 1px solid var(--border); border-radius: 4px; text-decoration: none; color: var(--primary);
-                  font-family: var(--font-sans); font-size: 0.85rem; font-weight: 500; transition: background 0.2s ease; }
-    .repo-badge:hover { background: #e2e8f0; }
-    .abstract-box { font-family: var(--font-sans); background-color: var(--bg); border-left: 4px solid var(--primary-light);
-                    padding: 1.25rem 1.5rem; margin-bottom: 2.5rem; border-radius: 0 4px 4px 0; }
-    .abstract-box h3 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;
-                       color: var(--primary); }
-    .abstract-box p { font-size: 0.95rem; line-height: 1.6; text-align: justify; margin-bottom: 0; }
-    .keywords { margin-top: 0.8rem; font-size: 0.9rem; color: var(--text-muted); }
-    nav.toc { font-family: var(--font-sans); background: #fdfefe; border: 1px solid var(--border); border-radius: 6px;
-              padding: 1.2rem 1.8rem; margin-bottom: 2.5rem; }
-    nav.toc h4 { font-size: 1rem; color: var(--primary); margin-bottom: 0.6rem; }
-    nav.toc ol { padding-left: 1.2rem; }
-    nav.toc li { margin: 0.3rem 0; }
-    nav.toc a { color: var(--text-muted); text-decoration: none; font-size: 0.92rem; }
-    nav.toc a:hover { color: var(--primary-light); text-decoration: underline; }
-    section { margin-bottom: 2.5rem; }
-    h2 { font-family: var(--font-sans); font-size: 1.45rem; font-weight: 600; color: var(--primary);
-         border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; margin-bottom: 1rem; margin-top: 2rem; }
-    h3.sub { font-family: var(--font-sans); font-size: 1.15rem; font-weight: 600; color: var(--text); margin: 1.6rem 0 0.6rem; }
-    p { margin-bottom: 1.2rem; text-align: justify; }
-    p, li { overflow-wrap: anywhere; }
-    ul.lista { margin: 0 0 1.2rem 1.4rem; }
-    ul.lista li { margin-bottom: 0.4rem; }
-    figure { margin: 2rem 0; text-align: center; }
-    figure img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
-    .chart-container { width: 100%; min-height: 380px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
-    figcaption { font-family: var(--font-sans); font-size: 0.85rem; color: var(--text-muted); margin-top: 0.6rem; text-align: center; }
-    pre, code { font-family: Consolas, "Courier New", monospace; font-size: 0.85rem; background-color: var(--code-bg); }
-    code { padding: 0.2rem 0.4rem; border-radius: 3px; }
-    pre { padding: 1rem; border-radius: 6px; overflow-x: auto; margin-bottom: 1.2rem; border: 1px solid var(--border); line-height: 1.5; }
-    pre code { padding: 0; background: none; }
-    .fair-box { font-family: var(--font-sans); border: 1px solid #bfdbfe; background-color: #eff6ff; border-radius: 6px;
-                padding: 1.25rem; margin-top: 2rem; }
-    .fair-box h3 { font-size: 1rem; color: #1e40af; margin-bottom: 0.5rem; }
-    .fair-box ul { margin-left: 1.2rem; font-size: 0.92rem; color: #1e3a8a; }
-    .fair-box li { margin-bottom: 0.4rem; }
-    .references ol { padding-left: 1.2rem; font-size: 0.9rem; color: var(--text-muted); }
-    .references li { margin-bottom: 0.6rem; }
-    table.dados { font-family: var(--font-sans); border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 1rem 0 1.4rem; }
-    table.dados th, table.dados td { border-bottom: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: right; }
-    table.dados th:first-child, table.dados td:first-child { text-align: left; }
-    table.dados th { color: var(--primary); }
-    .tabela-rolagem { overflow-x: auto; }
-    @media (max-width: 768px) {
-      body { padding: 1rem 0.5rem; }
-      .container { padding: 1.5rem; }
-      h1.paper-title { font-size: 1.6rem; }
-      .chart-container { min-height: 320px; }
-    }
-"""
+CSS = (RAIZ / "src" / "artigo.css").read_text(encoding="utf-8")
 
 
 def gerar() -> str:
     df = etl.carregar_processado()
-    i = etl.calcular_indicadores(df)
+    ind = etl.calcular_indicadores(df)
     relatorio = json.loads((etl.PASTA_PROCESSADA / "relatorio_etl.json").read_text(encoding="utf-8"))
 
-    porte = i["porte"].set_index("porte_do_cliente")
-    setor = i["setor"].set_index("setor_bndes")
-    regiao = i["regiao"].set_index("regiao")
-    uf = i["uf"].set_index("uf")
-    anual = i["anual"]
-    corr = i["correlacao_reembolsaveis"]
-    corr_geral = i["correlacao_geral"]
-    inov = i["inovacao"]
-    mensal_q4 = i["participacao_quarto_trimestre"]
-    maiores = i["maiores_clientes"]
-    n_top1 = max(1, int(i["clientes"] * 0.01))
+    porte = ind["porte"].set_index("porte_do_cliente")
+    setor = ind["setor"].set_index("setor_bndes")
+    regiao = ind["regiao"].set_index("regiao")
+    uf = ind["uf"].set_index("uf")
+    anual = ind["anual"]
+    corr = ind["correlacao_reembolsaveis"]
+    corr_geral = ind["correlacao_geral"]
+    inov = ind["inovacao"]
+    mensal_q4 = ind["participacao_quarto_trimestre"]
+    maiores = ind["maiores_clientes"]
+    n_top1 = max(1, int(ind["clientes"] * 0.01))
 
-    resumo = montar_resumo(i)
+    resumo = montar_resumo(ind)
     palavras_resumo = len(resumo.split())
     assert 150 <= palavras_resumo <= 250, palavras_resumo
 
@@ -210,8 +124,9 @@ def gerar() -> str:
 
     afiliacao = f"{CURSO}" + (f" — {INSTITUICAO}" if INSTITUICAO else "")
     pares_corr = {
-        "valor × amortização": corr.iloc[0, 3], "valor × carência": corr.iloc[0, 2], "valor × juros": corr.iloc[0, 1],
-        "carência × amortização": corr.iloc[2, 3], "juros × carência": corr.iloc[1, 2], "juros × amortização": corr.iloc[1, 3],
+        "valor × amortização": corr.loc[VALOR, AMORTIZACAO], "valor × carência": corr.loc[VALOR, CARENCIA],
+        "valor × juros": corr.loc[VALOR, JUROS], "carência × amortização": corr.loc[CARENCIA, AMORTIZACAO],
+        "juros × carência": corr.loc[JUROS, CARENCIA], "juros × amortização": corr.loc[JUROS, AMORTIZACAO],
     }
 
     return f"""<!DOCTYPE html>
@@ -298,9 +213,9 @@ def gerar() -> str:
       <p>
         Os dados são o recurso <em>Operações não automáticas</em> do conjunto <em>Operações de Financiamento</em>, publicado pelo
         BNDES sob licença ODbL (BNDES, 2026), acessado em {DATA_ACESSO}. O arquivo tem {num(relatorio['linhas'])} linhas e
-        {relatorio['colunas_originais']} colunas, de {i['primeira_data']:%d/%m/%Y} a {i['ultima_data']:%d/%m/%Y}. Cada linha é um
+        {relatorio['colunas_originais']} colunas, de {ind['primeira_data']:%d/%m/%Y} a {ind['ultima_data']:%d/%m/%Y}. Cada linha é um
         <strong>subcrédito</strong>: um contrato pode ter vários, com condições distintas, e a soma deles é o valor do contrato. A
-        base reúne {num(i['contratos'])} contratos, {num(i['clientes'])} clientes (CNPJ) e {num(i['municipios'])} municípios. Por isso a
+        base reúne {num(ind['contratos'])} contratos, {num(ind['clientes'])} clientes (CNPJ) e {num(ind['municipios'])} municípios. Por isso a
         unidade de análise é o subcrédito, e os valores são somados por contrato ou cliente quando a pergunta exige.
       </p>
       <h3 class="sub">2.2 Leitura e tratamento</h3>
@@ -319,13 +234,13 @@ def gerar() -> str:
         Os marcadores viram nulo, sem imputação. Também foram criadas a região do país a partir da UF, o prazo total, a taxa de
         execução (desembolsado sobre contratado) e três sinalizações:
       </p>
-      {trecho_codigo(etl.sinalizar_inconsistencias)}
+      {trecho_codigo(etl.limites_outlier, etl.sinalizar_inconsistencias)}
       <p>
         Foram sinalizadas {num(relatorio['linhas_sinalizadas']['repetida'])} linhas idênticas a outra anterior (que podem ser
         subcréditos legítimos de mesmo valor), {num(relatorio['linhas_sinalizadas']['desembolso_acima_contratado'])} linhas em que o
-        desembolso supera o contratado ({pct(i['desembolso_acima'])}; o dicionário do BNDES atribui isso à correção por
+        desembolso supera o contratado ({pct(ind['desembolso_acima'])}; o dicionário do BNDES atribui isso à correção por
         indexador) e {num(relatorio['linhas_sinalizadas']['outlier_valor'])} outliers de valor, que somam
-        {pct(i['valor_outliers'])} do total. Como o valor por subcrédito é muito assimétrico (mediana de R$ 9,2 milhões e média
+        {pct(ind['valor_outliers'])} do total. Como o valor por subcrédito é muito assimétrico (mediana de R$ 9,2 milhões e média
         acima de R$ 51 milhões), as análises usam medianas, escala logarítmica e a correlação de Spearman. A base tratada é
         gravada em Parquet e em CSV comprimido, com dicionário de dados em Markdown.
       </p>
@@ -334,8 +249,8 @@ def gerar() -> str:
     <section id="resultados">
       <h2>3. Resultados e Discussão</h2>
       <p>
-        O valor total contratado na base é de R$ {bi(i['total_contratado'])} bilhões, dos quais R$ {bi(i['total_desembolsado'])}
-        bilhões foram desembolsados ({pct(i['taxa_execucao'])}). Como 2026 termina em 30 de setembro, as comparações anuais usam
+        O valor total contratado na base é de R$ {bi(ind['total_contratado'])} bilhões, dos quais R$ {bi(ind['total_desembolsado'])}
+        bilhões foram desembolsados ({pct(ind['taxa_execucao'])}). Como 2026 termina em 30 de setembro, as comparações anuais usam
         2002-2025. Os gráficos são interativos: passe o mouse para ver os valores.
       </p>
 
@@ -345,10 +260,10 @@ def gerar() -> str:
         <figcaption>Figura 1: Valor contratado por ano, em R$ bilhões nominais. A barra clara é 2026*, parcial até setembro.</figcaption>
       </figure>
       <p>
-        O valor anual não segue uma tendência única. A média anual é de R$ {bi(i['media_2002_2008'])} bilhões em 2002-2008, sobe para
-        R$ {bi(i['media_2009_2014'])} bilhões em 2009-2014, com pico de <strong>R$ {bi(i['valor_pico'])} bilhões em {i['ano_pico']}</strong>,
-        cai para R$ {bi(i['media_2015_2019'])} bilhões em 2015-2019, com vale de R$ {bi(i['valor_vale'])} bilhões em {i['ano_vale']}, e
-        volta a R$ {bi(i['media_2020_2025'])} bilhões em 2020-2025. Em 2024 o valor chega a R$ {bi(anual.loc[2024, 'valor_contratado'])}
+        O valor anual não segue uma tendência única. A média anual é de R$ {bi(ind['media_2002_2008'])} bilhões em 2002-2008, sobe para
+        R$ {bi(ind['media_2009_2014'])} bilhões em 2009-2014, com pico de <strong>R$ {bi(ind['valor_pico'])} bilhões em {ind['ano_pico']}</strong>,
+        cai para R$ {bi(ind['media_2015_2019'])} bilhões em 2015-2019, com vale de R$ {bi(ind['valor_vale'])} bilhões em {ind['ano_vale']}, e
+        volta a R$ {bi(ind['media_2020_2025'])} bilhões em 2020-2025. Em 2024 o valor chega a R$ {bi(anual.loc[2024, 'valor_contratado'])}
         bilhões. Os dados mostram <em>quando</em> o volume mudou, não <em>por que</em>: associar cada regime a políticas
         públicas ou ao ciclo econômico exigiria dados externos.
       </p>
@@ -357,9 +272,9 @@ def gerar() -> str:
         <figcaption>Figura 2: Valor contratado por mês e média móvel de 12 meses (2002-2025).</figcaption>
       </figure>
       <p>
-        A série mensal é muito irregular, e poucas operações movem o total. O mês de maior valor é {dec(i['valor_mes_pico'] / 1e9)}
-        bilhões em {i['mes_pico']:%m/%Y}, e o maior cliente daquele mês, {html.escape(i['cliente_mes_pico'].title())}, responde sozinho por
-        R$ {bi(i['valor_cliente_mes_pico'])} bilhões. A média móvel suaviza esse ruído e deixa visíveis os regimes da Figura 1.
+        A série mensal é muito irregular, e poucas operações movem o total. O mês de maior valor é {dec(ind['valor_mes_pico'] / 1e9)}
+        bilhões em {ind['mes_pico']:%m/%Y}, e o maior cliente daquele mês, {html.escape(ind['cliente_mes_pico'].title())}, responde sozinho por
+        R$ {bi(ind['valor_cliente_mes_pico'])} bilhões. A média móvel suaviza esse ruído e deixa visíveis os regimes da Figura 1.
       </p>
       <figure>
         {figuras['fig-sazonal']}
@@ -367,10 +282,10 @@ def gerar() -> str:
       </figure>
       <p>
         Há uma marca sazonal clara: <strong>{pct(mensal_q4)} do valor</strong> é contratado de outubro a dezembro, contra os 25% que
-        uma distribuição uniforme daria a um trimestre, e dezembro sozinho concentra {pct(i['participacao_dezembro_valor'])} do valor e
-        {pct(i['participacao_dezembro_subcreditos'])} dos subcréditos. O padrão não depende de um ano atípico: o quarto trimestre
-        passa de 25% em {i['anos_q4_acima_uniforme']} dos {i['anos_completos']} anos completos, e sem 2012 a participação continua em
-        {pct(i['quarto_trimestre_sem_2012'])}. É compatível com o fechamento de contratos ao fim do ano, mas a base não permite
+        uma distribuição uniforme daria a um trimestre, e dezembro sozinho concentra {pct(ind['participacao_dezembro_valor'])} do valor e
+        {pct(ind['participacao_dezembro_subcreditos'])} dos subcréditos. O padrão não depende de um ano atípico: o quarto trimestre
+        passa de 25% em {ind['anos_q4_acima_uniforme']} dos {ind['anos_completos']} anos completos, e sem 2012 a participação continua em
+        {pct(ind['quarto_trimestre_sem_2012'])}. É compatível com o fechamento de contratos ao fim do ano, mas a base não permite
         confirmar a causa.
       </p>
 
@@ -404,22 +319,22 @@ def gerar() -> str:
         por isso a leitura regional subestima o peso real das regiões.
       </p>
       <figure>
-        <img src="assets/fig_lorenz.png" alt="Curva de Lorenz do valor contratado por cliente, com Gini de {dec(i['gini_clientes'], 2)}" loading="lazy" width="620">
-        <figcaption>Figura 6: Curva de Lorenz do valor contratado por cliente (Gini = {dec(i['gini_clientes'], 2)}).</figcaption>
+        <img src="assets/fig_lorenz.png" alt="Curva de Lorenz do valor contratado por cliente, com Gini de {dec(ind['gini_clientes'], 2)}" loading="lazy" width="620">
+        <figcaption>Figura 6: Curva de Lorenz do valor contratado por cliente (Gini = {dec(ind['gini_clientes'], 2)}).</figcaption>
       </figure>
       <p>
-        Entre os {num(i['clientes'])} clientes, o coeficiente de Gini é {dec(i['gini_clientes'], 2)}: o 1% maior ({n_top1} clientes)
-        concentra {pct(i['top1pct_clientes'])} do valor, e os dez maiores, {pct(i['top10_clientes'])}. Os cinco maiores são
+        Entre os {num(ind['clientes'])} clientes, o coeficiente de Gini é {dec(ind['gini_clientes'], 2)}: o 1% maior ({n_top1} clientes)
+        concentra {pct(ind['top1pct_clientes'])} do valor, e os dez maiores, {pct(ind['top10_clientes'])}. Os cinco maiores são
         {', '.join(f"{html.escape(nome.title())} (R$ {bi(valor)} bi)" for nome, valor in maiores.items())}. Ainda assim, nenhum cliente domina
-        sozinho: o maior tem {pct(maiores.iloc[0] / i['total_contratado'])} do total.
+        sozinho: o maior tem {pct(maiores.iloc[0] / ind['total_contratado'])} do total.
       </p>
 
       <h3 class="sub">3.3 RQ3: valor, prazo e juros</h3>
       <p>
-        As operações <em>não reembolsáveis</em> ({pct(i['participacao_nao_reembolsavel_linhas'])} das linhas e
-        {pct(i['participacao_nao_reembolsavel_valor'])} do valor) têm juros e prazos iguais a zero por definição. Misturadas às demais,
-        elas inflam a correlação entre valor e prazo de amortização para {dec(corr_geral.iloc[0, 3], 2)}. A análise a seguir usa só as
-        {num(i['reembolsaveis'])} operações reembolsáveis.
+        As operações <em>não reembolsáveis</em> ({pct(ind['participacao_nao_reembolsavel_linhas'])} das linhas e
+        {pct(ind['participacao_nao_reembolsavel_valor'])} do valor) têm juros e prazos iguais a zero por definição. Misturadas às demais,
+        elas inflam a correlação entre valor e prazo de amortização para {dec(corr_geral.loc[VALOR, AMORTIZACAO], 2)}. A análise a seguir usa só as
+        {num(ind['reembolsaveis'])} operações reembolsáveis.
       </p>
       <figure>
         <img src="assets/fig_correlacao.png" alt="Matriz de correlação de Spearman entre valor, juros e prazos nas operações reembolsáveis" loading="lazy" width="560">
@@ -439,7 +354,7 @@ def gerar() -> str:
         <figcaption>Figura 9: Valor mediano (R$ milhões), prazo de amortização mediano (meses) e juros medianos (% a.a.) nas operações reembolsáveis, com e sem apoio à inovação.</figcaption>
       </figure>
       <p>
-        No apoio à inovação ({pct(i['participacao_inovacao_linhas'])} das linhas), o valor mediano é menor (R$ {dec(inov.loc['SIM', 'valor_mediano'] / 1e6)}
+        No apoio à inovação ({pct(ind['participacao_inovacao_linhas'])} das linhas), o valor mediano é menor (R$ {dec(inov.loc['SIM', 'valor_mediano'] / 1e6)}
         milhões contra R$ {dec(inov.loc['NÃO', 'valor_mediano'] / 1e6)} milhões), a amortização é mais curta
         ({dec(inov.loc['SIM', 'amortizacao_mediana'], 0)} contra {dec(inov.loc['NÃO', 'amortizacao_mediana'], 0)} meses) e os juros
         medianos ficam um pouco acima ({dec(inov.loc['SIM', 'juros_mediano'], 2)}% contra {dec(inov.loc['NÃO', 'juros_mediano'], 2)}%).
@@ -451,17 +366,17 @@ def gerar() -> str:
       <h2>4. Conclusão</h2>
       <p>
         O valor contratado em operações não automáticas do BNDES passa por regimes distintos entre 2002 e 2025, com pico em
-        {i['ano_pico']} e vale em {i['ano_vale']}, e concentra {pct(mensal_q4)} do total no quarto trimestre. A concentração é forte
+        {ind['ano_pico']} e vale em {ind['ano_vale']}, e concentra {pct(mensal_q4)} do total no quarto trimestre. A concentração é forte
         em clientes de grande porte ({pct(porte.loc['GRANDE', 'participacao'])}), em infraestrutura
         ({pct(setor.loc['INFRAESTRUTURA', 'participacao'])}) e no Sudeste ({pct(regiao.loc['Sudeste', 'participacao'])}), e o Gini entre
-        clientes é {dec(i['gini_clientes'], 2)}. Nas operações reembolsáveis, valor, prazo e juros se relacionam de forma fraca, e
+        clientes é {dec(ind['gini_clientes'], 2)}. Nas operações reembolsáveis, valor, prazo e juros se relacionam de forma fraca, e
         o apoio à inovação tem operações menores e de prazo mais curto.
       </p>
       <p>
         <strong>Limitações.</strong> A base cobre só as operações não automáticas, não o total de financiamentos do banco; 2026 está
         incompleto; os valores são nominais, sem correção pela inflação; a região é derivada da UF e {pct(regiao.loc[etl.SEM_UF_UNICA, 'participacao'])}
         do valor não tem UF única; e as associações são descritivas, sem controle de variáveis. A análise de sensibilidade mostra que
-        excluir as linhas repetidas mudaria o total em {pct(i['valor_linhas_repetidas'])}, sem alterar as conclusões.
+        excluir as linhas repetidas mudaria o total em {pct(ind['valor_linhas_repetidas'])}, sem alterar as conclusões.
       </p>
       <p>
         <strong>Trabalhos futuros.</strong> Deflacionar os valores (por exemplo, pelo IPCA), incluir as operações indiretas

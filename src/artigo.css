@@ -1,0 +1,72 @@
+
+    :root {
+      --primary: #1e3a8a; --primary-light: #3b82f6; --text: #1f2937; --text-muted: #4b5563; --bg: #f8fafc;
+      --surface: #ffffff; --border: #e2e8f0; --code-bg: #f1f5f9;
+      --font-serif: "Merriweather", Georgia, serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-serif); font-size: 1.05rem; line-height: 1.8; color: var(--text);
+           background-color: var(--bg); padding: 2rem 1rem; }
+    .container { max-width: 900px; margin: 0 auto; background: var(--surface); padding: 3.5rem 4rem;
+                 border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05); border: 1px solid var(--border); }
+    header { border-bottom: 2px solid var(--border); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+    h1.paper-title { font-family: var(--font-sans); font-size: 2.1rem; font-weight: 700; line-height: 1.3;
+                     color: var(--primary); margin-bottom: 1.2rem; }
+    .meta-block { font-family: var(--font-sans); font-size: 0.95rem; color: var(--text-muted); margin-bottom: 0.8rem; }
+    .authors { font-weight: 600; color: var(--text); }
+    .affiliations { font-style: italic; }
+    .badges { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; font-family: var(--font-sans); }
+    .badge { padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.78rem; font-weight: 600;
+             background: var(--code-bg); border: 1px solid var(--border); color: var(--primary); }
+    .repo-badge { display: inline-block; margin-top: 1rem; padding: 0.4rem 0.8rem; background: var(--code-bg);
+                  border: 1px solid var(--border); border-radius: 4px; text-decoration: none; color: var(--primary);
+                  font-family: var(--font-sans); font-size: 0.85rem; font-weight: 500; transition: background 0.2s ease; }
+    .repo-badge:hover { background: #e2e8f0; }
+    .abstract-box { font-family: var(--font-sans); background-color: var(--bg); border-left: 4px solid var(--primary-light);
+                    padding: 1.25rem 1.5rem; margin-bottom: 2.5rem; border-radius: 0 4px 4px 0; }
+    .abstract-box h3 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;
+                       color: var(--primary); }
+    .abstract-box p { font-size: 0.95rem; line-height: 1.6; text-align: justify; margin-bottom: 0; }
+    .keywords { margin-top: 0.8rem; font-size: 0.9rem; color: var(--text-muted); }
+    nav.toc { font-family: var(--font-sans); background: #fdfefe; border: 1px solid var(--border); border-radius: 6px;
+              padding: 1.2rem 1.8rem; margin-bottom: 2.5rem; }
+    nav.toc h4 { font-size: 1rem; color: var(--primary); margin-bottom: 0.6rem; }
+    nav.toc ol { padding-left: 1.2rem; }
+    nav.toc li { margin: 0.3rem 0; }
+    nav.toc a { color: var(--text-muted); text-decoration: none; font-size: 0.92rem; }
+    nav.toc a:hover { color: var(--primary-light); text-decoration: underline; }
+    section { margin-bottom: 2.5rem; }
+    h2 { font-family: var(--font-sans); font-size: 1.45rem; font-weight: 600; color: var(--primary);
+         border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; margin-bottom: 1rem; margin-top: 2rem; }
+    h3.sub { font-family: var(--font-sans); font-size: 1.15rem; font-weight: 600; color: var(--text); margin: 1.6rem 0 0.6rem; }
+    p { margin-bottom: 1.2rem; text-align: justify; }
+    p, li { overflow-wrap: anywhere; }
+    ul.lista { margin: 0 0 1.2rem 1.4rem; }
+    ul.lista li { margin-bottom: 0.4rem; }
+    figure { margin: 2rem 0; text-align: center; }
+    figure img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+    .chart-container { width: 100%; min-height: 380px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+    figcaption { font-family: var(--font-sans); font-size: 0.85rem; color: var(--text-muted); margin-top: 0.6rem; text-align: center; }
+    pre, code { font-family: Consolas, "Courier New", monospace; font-size: 0.85rem; background-color: var(--code-bg); }
+    code { padding: 0.2rem 0.4rem; border-radius: 3px; }
+    pre { padding: 1rem; border-radius: 6px; overflow-x: auto; margin-bottom: 1.2rem; border: 1px solid var(--border); line-height: 1.5; }
+    pre code { padding: 0; background: none; }
+    .fair-box { font-family: var(--font-sans); border: 1px solid #bfdbfe; background-color: #eff6ff; border-radius: 6px;
+                padding: 1.25rem; margin-top: 2rem; }
+    .fair-box h3 { font-size: 1rem; color: #1e40af; margin-bottom: 0.5rem; }
+    .fair-box ul { margin-left: 1.2rem; font-size: 0.92rem; color: #1e3a8a; }
+    .fair-box li { margin-bottom: 0.4rem; }
+    .references ol { padding-left: 1.2rem; font-size: 0.9rem; color: var(--text-muted); }
+    .references li { margin-bottom: 0.6rem; }
+    table.dados { font-family: var(--font-sans); border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 1rem 0 1.4rem; }
+    table.dados th, table.dados td { border-bottom: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: right; }
+    table.dados th:first-child, table.dados td:first-child { text-align: left; }
+    table.dados th { color: var(--primary); }
+    .tabela-rolagem { overflow-x: auto; }
+    @media (max-width: 768px) {
+      body { padding: 1rem 0.5rem; }
+      .container { padding: 1.5rem; }
+      h1.paper-title { font-size: 1.6rem; }
+      .chart-container { min-height: 320px; }
+    }
