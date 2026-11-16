@@ -161,7 +161,8 @@ def fig_setor_regiao(df: pd.DataFrame) -> go.Figure:
     regiao = etl.resumo_por(df, "regiao").sort_values("valor_contratado")
     fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.22, subplot_titles=("Setor (%)", "Região (%)"))
     fig.add_trace(go.Bar(
-        y=[setor_bndes.capitalize() for setor_bndes in setor["setor_bndes"]], x=setor["participacao"] * 100,
+        y=[etl.ROTULOS_SETOR.get(setor_bndes, setor_bndes.capitalize()) for setor_bndes in setor["setor_bndes"]],
+        x=setor["participacao"] * 100,
         orientation="h", marker_color=AZUL, text=[pct(v) for v in setor["participacao"]],
         textposition="outside", hovertemplate="%{y}: %{x:.1f}%<extra></extra>",
     ), row=1, col=1)
@@ -191,10 +192,16 @@ def fig_dispersao(df: pd.DataFrame, amostra: int = etl.AMOSTRA_DISPERSAO) -> go.
             x=grupo["prazo_amortizacao_meses"], y=grupo[etl.COL_VALOR] / 1e6, mode="markers", name=rotulo,
             marker={"color": cor, "size": 6, "opacity": 0.5, "line": {"color": "white", "width": 0.5}},
             customdata=np.stack(
-                [grupo["porte_do_cliente"].astype(str), grupo["setor_bndes"].astype(str), grupo["juros"]], axis=-1
+                [
+                    grupo["porte_do_cliente"].astype(str).str.capitalize(),
+                    grupo["setor_bndes"].astype(str).map(lambda setor: etl.ROTULOS_SETOR.get(setor, setor)),
+                    grupo["juros"],
+                    grupo[etl.COL_VALOR],
+                ],
+                axis=-1,
             ),
             hovertemplate=(
-                "Amortização: %{x} meses<br>Valor: R$ %{y:,.2f} mi<br>Porte: %{customdata[0]}"
+                "Amortização (meses): %{x}<br>Valor: R$ %{customdata[3]:,.0f}<br>Porte: %{customdata[0]}"
                 "<br>Setor: %{customdata[1]}<br>Juros: %{customdata[2]:.2f}%<extra></extra>"
             ),
         ))
@@ -212,15 +219,15 @@ def fig_inovacao(df: pd.DataFrame) -> go.Figure:
     resumo = etl.resumo_inovacao(df).reindex([etl.INOVACAO_NAO, etl.INOVACAO_SIM])
     rotulos = ["Sem inovação", "Com inovação"]
     paineis = (
-        ("R$ mi", resumo["valor_mediano"] / 1e6, 1),
-        ("Meses", resumo["amortizacao_mediana"], 0),
-        ("Juros (%)", resumo["juros_mediano"], 2),
+        ("R$ mi", resumo["valor_mediano"] / 1e6, 1, "%{x}: R$ %{y:,.2f} mi (valor mediano)"),
+        ("Meses", resumo["amortizacao_mediana"], 0, "%{x}: %{y:,.0f} meses de amortização (mediana)"),
+        ("Juros (%)", resumo["juros_mediano"], 2, "%{x}: %{y:,.2f}% de juros (mediana)"),
     )
-    fig = make_subplots(rows=1, cols=3, subplot_titles=[titulo for titulo, _, _ in paineis])
-    for coluna, (_, serie, casas) in enumerate(paineis, start=1):
+    fig = make_subplots(rows=1, cols=3, subplot_titles=[titulo for titulo, _, _, _ in paineis])
+    for coluna, (_, serie, casas, dica) in enumerate(paineis, start=1):
         fig.add_trace(go.Bar(
             x=rotulos, y=serie.to_numpy(), marker_color=[AZUL, LARANJA], text=[dec(v, casas) for v in serie],
-            textposition="outside", hovertemplate="%{x}: %{y:,.2f}<extra></extra>",
+            textposition="outside", hovertemplate=dica + "<extra></extra>",
         ), row=1, col=coluna)
         fig.update_yaxes(range=[0, serie.max() * FOLGA_EIXO], row=1, col=coluna)
     _layout(fig, 380)
