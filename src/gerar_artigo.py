@@ -240,8 +240,8 @@ def gerar() -> str:
         subcréditos legítimos de mesmo valor), {num(relatorio['linhas_sinalizadas']['desembolso_acima_contratado'])} linhas em que o
         desembolso supera o contratado ({pct(ind['desembolso_acima'])}; o dicionário do BNDES atribui isso à correção por
         indexador) e {num(relatorio['linhas_sinalizadas']['outlier_valor'])} outliers de valor, que somam
-        {pct(ind['valor_outliers'])} do total. Como o valor por subcrédito é muito assimétrico (mediana de R$ 9,2 milhões e média
-        acima de R$ 51 milhões), as análises usam medianas, escala logarítmica e a correlação de Spearman. A base tratada é
+        {pct(ind['valor_outliers'])} do total. Como o valor por subcrédito é muito assimétrico (mediana de R$ {dec(ind['mediana_subcredito'] / 1e6)} milhões e média
+        de R$ {dec(ind['media_subcredito'] / 1e6)} milhões), as análises usam medianas, escala logarítmica e a correlação de Spearman. A base tratada é
         gravada em Parquet e em CSV comprimido, com dicionário de dados em Markdown.
       </p>
     </section>
@@ -263,7 +263,7 @@ def gerar() -> str:
         O valor anual não segue uma tendência única. A média anual é de R$ {bi(ind['media_2002_2008'])} bilhões em 2002-2008, sobe para
         R$ {bi(ind['media_2009_2014'])} bilhões em 2009-2014, com pico de <strong>R$ {bi(ind['valor_pico'])} bilhões em {ind['ano_pico']}</strong>,
         cai para R$ {bi(ind['media_2015_2019'])} bilhões em 2015-2019, com vale de R$ {bi(ind['valor_vale'])} bilhões em {ind['ano_vale']}, e
-        volta a R$ {bi(ind['media_2020_2025'])} bilhões em 2020-2025. Em 2024 o valor chega a R$ {bi(anual.loc[2024, 'valor_contratado'])}
+        volta a R$ {bi(ind['media_2020_2025'])} bilhões em 2020-2025. Em {ind['ano_pico_recente']} o valor chega a R$ {bi(ind['valor_pico_recente'])}
         bilhões. Os dados mostram <em>quando</em> o volume mudou, não <em>por que</em>: associar cada regime a políticas
         públicas ou ao ciclo econômico exigiria dados externos.
       </p>
@@ -347,7 +347,7 @@ def gerar() -> str:
       </p>
       <figure>
         {figuras['fig-dispersao']}
-        <figcaption>Figura 8: Valor contratado e prazo de amortização nas operações reembolsáveis (amostra de 3.000 subcréditos, escala logarítmica no eixo vertical).</figcaption>
+        <figcaption>Figura 8: Valor contratado e prazo de amortização nas operações reembolsáveis (amostra de {num(etl.AMOSTRA_DISPERSAO)} subcréditos, escala logarítmica no eixo vertical).</figcaption>
       </figure>
       <figure>
         {figuras['fig-inovacao']}
@@ -391,7 +391,7 @@ def gerar() -> str:
         <h3>Declaração de Aderência FAIR</h3>
         <ul>
           <li><strong>Findable (Localizável):</strong> o <code>README.md</code> traz resumo, palavras-chave, identificação de autoria, disciplina e semestre, e o link permanente da fonte original dos dados ({URL_FONTE}).</li>
-          <li><strong>Accessible (Acessível):</strong> repositório público, dados brutos incluídos (20 MB), sem autenticação ou credenciais; o artigo é servido pelo GitHub Pages, com layout responsivo.</li>
+          <li><strong>Accessible (Acessível):</strong> repositório público, dados brutos incluídos ({num(ind['tamanho_bruto_mb'])} MB), sem autenticação ou credenciais; o artigo é servido pelo GitHub Pages, com layout responsivo.</li>
           <li><strong>Interoperable (Interoperável):</strong> dicionário de dados em <code>data/data_dictionary.md</code>; dados tratados em Parquet e CSV comprimido; relatório do tratamento em JSON.</li>
           <li><strong>Reusable (Reutilizável):</strong> código sob licença MIT, texto e figuras sob CC BY 4.0, dados sob ODbL (BNDES); <code>requirements.txt</code> com todas as versões congeladas.</li>
         </ul>
@@ -411,9 +411,10 @@ python -m src.gerar_artigo       # regenera docs/index.html</code></pre>
       <h2>6. Referências</h2>
       <ol>
         <li>BNDES. <em>Dados Abertos: Operações de Financiamento</em>. Rio de Janeiro: Banco Nacional de Desenvolvimento Econômico e Social, 2026. Disponível em: &lt;{URL_FONTE}&gt;. Acesso em: {DATA_ACESSO}.</li>
+        <li>HARRIS, C. R. et al. Array programming with NumPy. <em>Nature</em>, v. 585, p. 357-362, 2020.</li>
         <li>HUNTER, J. D. Matplotlib: a 2D graphics environment. <em>Computing in Science &amp; Engineering</em>, v. 9, n. 3, p. 90-95, 2007.</li>
         <li>MCKINNEY, W. Data structures for statistical computing in Python. In: PYTHON IN SCIENCE CONFERENCE, 9., 2010, Austin. <em>Proceedings</em> [...]. Austin: SciPy, 2010. p. 56-61.</li>
-        <li>PLOTLY TECHNOLOGIES INC. <em>Collaborative data science</em>. Montreal, 2015. Disponível em: &lt;https://plot.ly&gt;.</li>
+        <li>PLOTLY TECHNOLOGIES INC. <em>Collaborative data science</em>. Montreal, 2015. Disponível em: &lt;https://plotly.com&gt;.</li>
         <li>WASKOM, M. L. seaborn: statistical data visualization. <em>Journal of Open Source Software</em>, v. 6, n. 60, p. 3021, 2021.</li>
         <li>WILKINSON, M. D. et al. The FAIR Guiding Principles for scientific data management and stewardship. <em>Scientific Data</em>, v. 3, p. 160018, 2016.</li>
       </ol>

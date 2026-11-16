@@ -12,7 +12,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from plotly.subplots import make_subplots
 
 from src import etl
-from src.formatacao import dec, pct
+from src.formatacao import dec, mes_ano, pct
 
 RAIZ = Path(__file__).resolve().parents[1]
 PASTA_FIGURAS = RAIZ / "docs" / "assets"
@@ -85,7 +85,7 @@ def fig_serie_mensal(df: pd.DataFrame) -> go.Figure:
                              mode="lines", line=dict(color=AZUL_ESCURO, width=2.5),
                              hovertemplate="%{x|%m/%Y}<br>R$ %{y:,.1f} bi<extra>Média móvel de 12 meses</extra>"))
     pico = mensal.loc[mensal["bi"].idxmax()]
-    fig.add_annotation(x=pico["ano_mes"], y=pico["bi"], text=f"dez./2012: R$ {dec(pico['bi'])} bi",
+    fig.add_annotation(x=pico["ano_mes"], y=pico["bi"], text=f"{mes_ano(pico['ano_mes'])}: R$ {dec(pico['bi'])} bi",
                        showarrow=True, arrowhead=0, ax=60, ay=0, font=dict(size=12, color=CINZA))
     _layout(fig)
     fig.update_xaxes(title="Mês da contratação", tickformat="%Y")
@@ -150,7 +150,7 @@ def fig_setor_regiao(df: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def fig_dispersao(df: pd.DataFrame, amostra: int = 3000) -> go.Figure:
+def fig_dispersao(df: pd.DataFrame, amostra: int = etl.AMOSTRA_DISPERSAO) -> go.Figure:
     base = etl.reembolsaveis(df)
     base = base.sample(min(amostra, len(base)), random_state=42)
     fig = go.Figure()

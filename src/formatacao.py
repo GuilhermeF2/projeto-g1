@@ -16,3 +16,10 @@ def bi(valor: float, casas: int = 1) -> str:
 
 def pct(fracao: float, casas: int = 1) -> str:
     return dec(fracao * 100, casas) + "%"
+
+
+MESES_ABREVIADOS = ["jan.", "fev.", "mar.", "abr.", "mai.", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."]
+
+
+def mes_ano(data) -> str:
+    return f"{MESES_ABREVIADOS[data.month - 1]}/{data.year}"

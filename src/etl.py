@@ -39,6 +39,8 @@ REGIAO_POR_UF = {uf: regiao for regiao, ufs in REGIOES.items() for uf in ufs}
 SEM_UF_UNICA = "Sem UF única"
 ANO_COMPLETO_FINAL = 2025
 ANO_INICIO_VALE = 2013
+ANO_INICIO_RECUPERACAO = 2020
+AMOSTRA_DISPERSAO = 3000
 COLUNAS_CORRELACAO = ["valor_contratado_reais", "juros", "prazo_carencia_meses", "prazo_amortizacao_meses"]
 
 CORRECOES_AREA = {"AREA DE TRANSICAO ENERGETICA E CLIMA": "AREA DE TRANSICAO ENERGETICA E CLIMATICA"}
@@ -279,6 +281,11 @@ def calcular_indicadores(df: pd.DataFrame) -> dict:
         "anual": anual,
         "ano_pico": int(completos.idxmax()),
         "valor_pico": float(completos.max()),
+        "ano_pico_recente": int(completos.loc[ANO_INICIO_RECUPERACAO:].idxmax()),
+        "valor_pico_recente": float(completos.loc[ANO_INICIO_RECUPERACAO:].max()),
+        "mediana_subcredito": float(df[valor].median()),
+        "media_subcredito": float(df[valor].mean()),
+        "tamanho_bruto_mb": CAMINHO_BRUTO.stat().st_size / 1e6,
         "ano_vale": int(completos.loc[ANO_INICIO_VALE:].idxmin()),
         "valor_vale": float(completos.loc[ANO_INICIO_VALE:].min()),
         "media_2002_2008": periodo(2002, 2008),

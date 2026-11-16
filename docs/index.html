@@ -214,7 +214,7 @@ def sinalizar_inconsistencias(df: pd.DataFrame, colunas_originais: list[str]) -&
         desembolso supera o contratado (25,3%; o dicionário do BNDES atribui isso à correção por
         indexador) e 174 outliers de valor, que somam
         13,5% do total. Como o valor por subcrédito é muito assimétrico (mediana de R$ 9,2 milhões e média
-        acima de R$ 51 milhões), as análises usam medianas, escala logarítmica e a correlação de Spearman. A base tratada é
+        de R$ 51,6 milhões), as análises usam medianas, escala logarítmica e a correlação de Spearman. A base tratada é
         gravada em Parquet e em CSV comprimido, com dicionário de dados em Markdown.
       </p>
     </section>
@@ -391,9 +391,10 @@ python -m src.gerar_artigo       # regenera docs/index.html</code></pre>
       <h2>6. Referências</h2>
       <ol>
         <li>BNDES. <em>Dados Abertos: Operações de Financiamento</em>. Rio de Janeiro: Banco Nacional de Desenvolvimento Econômico e Social, 2026. Disponível em: &lt;https://dadosabertos.bndes.gov.br/dataset/operacoes-financiamento&gt;. Acesso em: 16 nov. 2026.</li>
+        <li>HARRIS, C. R. et al. Array programming with NumPy. <em>Nature</em>, v. 585, p. 357-362, 2020.</li>
         <li>HUNTER, J. D. Matplotlib: a 2D graphics environment. <em>Computing in Science &amp; Engineering</em>, v. 9, n. 3, p. 90-95, 2007.</li>
         <li>MCKINNEY, W. Data structures for statistical computing in Python. In: PYTHON IN SCIENCE CONFERENCE, 9., 2010, Austin. <em>Proceedings</em> [...]. Austin: SciPy, 2010. p. 56-61.</li>
-        <li>PLOTLY TECHNOLOGIES INC. <em>Collaborative data science</em>. Montreal, 2015. Disponível em: &lt;https://plot.ly&gt;.</li>
+        <li>PLOTLY TECHNOLOGIES INC. <em>Collaborative data science</em>. Montreal, 2015. Disponível em: &lt;https://plotly.com&gt;.</li>
         <li>WASKOM, M. L. seaborn: statistical data visualization. <em>Journal of Open Source Software</em>, v. 6, n. 60, p. 3021, 2021.</li>
         <li>WILKINSON, M. D. et al. The FAIR Guiding Principles for scientific data management and stewardship. <em>Scientific Data</em>, v. 3, p. 160018, 2016.</li>
       </ol>
