@@ -37,6 +37,7 @@ REGIOES = {
 }
 REGIAO_POR_UF = {uf: regiao for regiao, ufs in REGIOES.items() for uf in ufs}
 SEM_UF_UNICA = "Sem UF única"
+ANO_COMPLETO_FINAL = 2025
 
 CORRECOES_AREA = {"AREA DE TRANSICAO ENERGETICA E CLIMA": "AREA DE TRANSICAO ENERGETICA E CLIMATICA"}
 
@@ -218,14 +219,6 @@ def resumo_por(df: pd.DataFrame, coluna: str) -> pd.DataFrame:
     return resumo
 
 
-if __name__ == "__main__":
-    tratado = executar()
-    print(f"{len(tratado):,} linhas tratadas em {PASTA_PROCESSADA}".replace(",", "."))
-
-
-ANO_COMPLETO_FINAL = 2025
-
-
 def nao_reembolsavel(df: pd.DataFrame) -> pd.Series:
     return df["modalidade_de_apoio"].astype(str).str.startswith("NÃO")
 
@@ -316,3 +309,8 @@ def calcular_indicadores(df: pd.DataFrame) -> dict:
         "valor_outliers": float(df.loc[df["flag_outlier_valor"], valor].sum() / df[valor].sum()),
         "desembolso_acima": float(df["flag_desembolso_acima_contratado"].mean()),
     }
+
+
+if __name__ == "__main__":
+    tratado = executar()
+    print(f"{len(tratado):,} linhas tratadas em {PASTA_PROCESSADA}".replace(",", "."))
