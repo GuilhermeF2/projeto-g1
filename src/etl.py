@@ -215,8 +215,13 @@ def gini(valores: pd.Series) -> float:
     return float((ordenados.size + 1 - 2 * (acumulado / acumulado[-1]).sum()) / ordenados.size)
 
 
+def razao(numerador: float, denominador: float) -> float:
+    """Divisão que devolve NaN, em vez de erro ou infinito, quando o denominador é zero."""
+    return float(numerador / denominador) if denominador else float("nan")
+
+
 def participacao_topo(valores: pd.Series, quantidade: int) -> float:
-    return float(valores.nlargest(quantidade).sum() / valores.sum())
+    return razao(valores.nlargest(quantidade).sum(), valores.sum())
 
 
 def quantidade_topo(total: int, fracao: float = FRACAO_TOPO_CLIENTES) -> int:
@@ -299,7 +304,13 @@ def participacao_mensal(df: pd.DataFrame) -> pd.DataFrame:
 def participacao_trimestre_final(df: pd.DataFrame) -> float:
     """Fração do valor contratado nos meses do trimestre final, sobre os anos do recorte."""
     por_mes = df.groupby("mes", observed=True)[COL_VALOR].sum()
-    return float(por_mes.loc[list(TRIMESTRE_FINAL)].sum() / por_mes.sum())
+    return razao(por_mes.reindex(TRIMESTRE_FINAL, fill_value=0).sum(), por_mes.sum())
+
+
+def pico_mensal(df: pd.DataFrame) -> tuple[pd.Timestamp, float]:
+    """Mês de maior valor contratado nos anos completos e o valor desse mês."""
+    mensal = anos_completos(df).groupby("ano_mes", observed=True)[COL_VALOR].sum()
+    return mensal.idxmax(), float(mensal.max())
 
 
 def pico_e_vale(valores_anuais: pd.Series) -> dict[str, float | int]:
@@ -307,8 +318,12 @@ def pico_e_vale(valores_anuais: pd.Series) -> dict[str, float | int]:
     completos = valores_anuais.loc[:ANO_COMPLETO_FINAL]
     ano_pico = int(completos.idxmax())
     depois_do_pico = completos.loc[ano_pico + 1:]
+    if depois_do_pico.empty:
+        raise ValueError(f"Não há anos completos depois do pico ({ano_pico}) para identificar o vale.")
     ano_vale = int(depois_do_pico.idxmin())
     depois_do_vale = completos.loc[ano_vale + 1:]
+    if depois_do_vale.empty:
+        raise ValueError(f"Não há anos completos depois do vale ({ano_vale}) para identificar a recuperação.")
     ano_recuperacao = int(depois_do_vale.idxmax())
     return {
         "ano_pico": ano_pico, "valor_pico": float(completos.loc[ano_pico]),
@@ -327,18 +342,16 @@ def _indicadores_gerais(df: pd.DataFrame) -> dict:
         "ultima_data": df["data_da_contratacao"].max(),
         "total_contratado": float(df[COL_VALOR].sum()),
         "total_desembolsado": float(df[COL_DESEMBOLSO].sum()),
-        "taxa_execucao": float(df[COL_DESEMBOLSO].sum() / df[COL_VALOR].sum()),
+        "taxa_execucao": razao(df[COL_DESEMBOLSO].sum(), df[COL_VALOR].sum()),
         "mediana_subcredito": float(df[COL_VALOR].median()),
         "media_subcredito": float(df[COL_VALOR].mean()),
-        "tamanho_bruto_mb": CAMINHO_BRUTO.stat().st_size / 1e6,
     }
 
 
 def _indicadores_temporais(df: pd.DataFrame) -> dict:
     anual = resumo_anual(df).set_index("ano")
     marcos = pico_e_vale(anual["valor_contratado"])
-    mensal = anos_completos(df).groupby("ano_mes", observed=True)[COL_VALOR].sum()
-    mes_pico = mensal.idxmax()
+    mes_pico, valor_mes_pico = pico_mensal(df)
     cliente_pico = df[df["ano_mes"] == mes_pico].groupby("cliente", observed=True)[COL_VALOR].sum().nlargest(1)
     return {
         "anual": anual,
@@ -347,7 +360,7 @@ def _indicadores_temporais(df: pd.DataFrame) -> dict:
             periodo: float(anual.loc[periodo[0]:periodo[1], "valor_contratado"].mean()) for periodo in PERIODOS
         },
         "mes_pico": mes_pico,
-        "valor_mes_pico": float(mensal.max()),
+        "valor_mes_pico": valor_mes_pico,
         "cliente_mes_pico": str(cliente_pico.index[0]),
         "valor_cliente_mes_pico": float(cliente_pico.iloc[0]),
     }
@@ -387,11 +400,11 @@ def _indicadores_concentracao(df: pd.DataFrame) -> dict:
 
 def _indicadores_condicoes(df: pd.DataFrame) -> dict:
     sem_reembolso = nao_reembolsavel(df)
-    reembolsavel = df[~sem_reembolso]
+    reembolsavel = reembolsaveis(df)
     return {
         "reembolsaveis": len(reembolsavel),
         "participacao_nao_reembolsavel_linhas": float(sem_reembolso.mean()),
-        "participacao_nao_reembolsavel_valor": float(df.loc[sem_reembolso, COL_VALOR].sum() / df[COL_VALOR].sum()),
+        "participacao_nao_reembolsavel_valor": razao(df.loc[sem_reembolso, COL_VALOR].sum(), df[COL_VALOR].sum()),
         "correlacao_reembolsaveis": correlacao_spearman(reembolsavel),
         "correlacao_geral": correlacao_spearman(df),
         "inovacao": resumo_inovacao(df),
@@ -402,8 +415,8 @@ def _indicadores_condicoes(df: pd.DataFrame) -> dict:
 def _indicadores_qualidade(df: pd.DataFrame) -> dict:
     total = df[COL_VALOR].sum()
     return {
-        "valor_linhas_repetidas": float(df.loc[df["flag_linha_repetida"], COL_VALOR].sum() / total),
-        "valor_outliers": float(df.loc[df["flag_outlier_valor"], COL_VALOR].sum() / total),
+        "valor_linhas_repetidas": razao(df.loc[df["flag_linha_repetida"], COL_VALOR].sum(), total),
+        "valor_outliers": razao(df.loc[df["flag_outlier_valor"], COL_VALOR].sum(), total),
         "desembolso_acima": float(df["flag_desembolso_acima_contratado"].mean()),
     }
 
@@ -425,17 +438,28 @@ def _sensibilidade_sem_repetidas(df: pd.DataFrame, completo: dict) -> dict:
     }
 
 
+def _mesclar(*grupos: dict) -> dict:
+    """Une os grupos de indicadores e falha se duas funções devolverem a mesma chave."""
+    mesclado: dict = {}
+    for grupo in grupos:
+        repetidas = mesclado.keys() & grupo.keys()
+        if repetidas:
+            raise ValueError(f"Indicadores repetidos entre grupos: {sorted(repetidas)}")
+        mesclado.update(grupo)
+    return mesclado
+
+
 def calcular_indicadores(df: pd.DataFrame, com_sensibilidade: bool = True) -> dict:
     """Números citados no artigo, calculados a partir da base tratada."""
     temporais = _indicadores_temporais(df)
-    indicadores = {
-        **_indicadores_gerais(df),
-        **temporais,
-        **_indicadores_sazonalidade(df, temporais["ano_pico"]),
-        **_indicadores_concentracao(df),
-        **_indicadores_condicoes(df),
-        **_indicadores_qualidade(df),
-    }
+    indicadores = _mesclar(
+        _indicadores_gerais(df),
+        temporais,
+        _indicadores_sazonalidade(df, temporais["ano_pico"]),
+        _indicadores_concentracao(df),
+        _indicadores_condicoes(df),
+        _indicadores_qualidade(df),
+    )
     if com_sensibilidade:
         indicadores["sensibilidade_sem_repetidas"] = _sensibilidade_sem_repetidas(df, indicadores)
     return indicadores

@@ -106,8 +106,8 @@ def fig_serie_mensal(df: pd.DataFrame) -> go.Figure:
         line={"color": AZUL_ESCURO, "width": 2.5},
         hovertemplate="%{x|%m/%Y}<br>R$ %{y:,.1f} bi<extra>Média móvel de 12 meses</extra>",
     ))
-    pico = mensal.loc[mensal["bi"].idxmax()]
-    _anotacao(fig, pico["ano_mes"], pico["bi"], f"{mes_ano(pico['ano_mes'])}: R$ {dec(pico['bi'])} bi", ax=60, ay=0)
+    mes_pico, valor_pico = etl.pico_mensal(df)
+    _anotacao(fig, mes_pico, valor_pico / 1e9, f"{mes_ano(mes_pico)}: R$ {dec(valor_pico / 1e9)} bi", ax=60, ay=0)
     _layout(fig)
     fig.update_xaxes(title="Mês da contratação", tickformat="%Y")
     fig.update_yaxes(title="Valor contratado (R$ bilhões)")
@@ -134,7 +134,8 @@ def fig_sazonalidade_mensal(df: pd.DataFrame) -> go.Figure:
 
 
 def fig_porte(df: pd.DataFrame) -> go.Figure:
-    resumo = etl.resumo_por(df, "porte_do_cliente").set_index("porte_do_cliente").loc[list(etl.PORTES)]
+    resumo = etl.resumo_por(df, "porte_do_cliente").set_index("porte_do_cliente")
+    resumo = resumo.reindex([porte for porte in etl.PORTES if porte in resumo.index])
     rotulos = [porte.capitalize() for porte in resumo.index]
     cores = [RAMPA_PORTE[porte] for porte in resumo.index]
     participacao = resumo["participacao"] * 100
@@ -208,7 +209,7 @@ def fig_dispersao(df: pd.DataFrame, amostra: int = etl.AMOSTRA_DISPERSAO) -> go.
 
 
 def fig_inovacao(df: pd.DataFrame) -> go.Figure:
-    resumo = etl.resumo_inovacao(df).loc[[etl.INOVACAO_NAO, etl.INOVACAO_SIM]]
+    resumo = etl.resumo_inovacao(df).reindex([etl.INOVACAO_NAO, etl.INOVACAO_SIM])
     rotulos = ["Sem inovação", "Com inovação"]
     paineis = (
         ("R$ mi", resumo["valor_mediano"] / 1e6, 1),
@@ -221,7 +222,7 @@ def fig_inovacao(df: pd.DataFrame) -> go.Figure:
             x=rotulos, y=serie.to_numpy(), marker_color=[AZUL, LARANJA], text=[dec(v, casas) for v in serie],
             textposition="outside", hovertemplate="%{x}: %{y:,.2f}<extra></extra>",
         ), row=1, col=coluna)
-        fig.update_yaxes(range=[0, serie.max() * 1.25], row=1, col=coluna)
+        fig.update_yaxes(range=[0, serie.max() * FOLGA_EIXO], row=1, col=coluna)
     _layout(fig, 380)
     fig.update_layout(showlegend=False, bargap=0.4)
     return fig

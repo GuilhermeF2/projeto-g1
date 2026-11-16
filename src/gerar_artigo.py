@@ -47,6 +47,9 @@ TITULO_PAGINA: Final = "Financiamentos do BNDES (2002-2026): análise explorató
 DESCRICAO_PAGINA: Final = (
     "Análise exploratória dos financiamentos não automáticos do BNDES (2002-2026) com Python, sob princípios FAIR."
 )
+LIMITE_CORRELACAO_FRACA: Final = 0.3
+LIMITE_CLIENTE_DOMINANTE: Final = 0.10
+QUANTIDADE_PERIODOS_TEXTO: Final = 4
 PALAVRAS_RESUMO_MIN: Final = 150
 PALAVRAS_RESUMO_MAX: Final = 250
 CONFIG_PLOTLY: Final = {"responsive": True, "displayModeBar": False}
@@ -86,6 +89,30 @@ def bloco_plotly(identificador: str, figura: go.Figure, descricao: str) -> str:
 def trecho_codigo(*funcoes: Callable) -> str:
     codigo = "\n\n".join(inspect.getsource(funcao).rstrip() for funcao in funcoes)
     return f"<pre><code>{html.escape(codigo)}</code></pre>"
+
+
+def validar_afirmacoes(ind: dict) -> None:
+    """Confere se as frases qualitativas do texto continuam verdadeiras para os dados; senão, interrompe."""
+    inov = ind["inovacao"]
+    sim, nao = inov.loc[etl.INOVACAO_SIM], inov.loc[etl.INOVACAO_NAO]
+    correlacoes = [abs(correlacao_de(ind["correlacao_reembolsaveis"], par)) for par in PARES_CORRELACAO]
+    maior_porte = linha_de(ind["porte"], etl.PORTES[-1])["participacao"]
+    maior_setor = ind["setor"]["participacao"].max()
+    maior_regiao = ind["regiao"]["participacao"].max()
+    afirmacoes = {
+        "o apoio à inovação tem valor mediano menor": sim["valor_mediano"] < nao["valor_mediano"],
+        "o apoio à inovação tem amortização mais curta": sim["amortizacao_mediana"] < nao["amortizacao_mediana"],
+        "os juros medianos da inovação ficam acima": sim["juros_mediano"] > nao["juros_mediano"],
+        "as correlações das reembolsáveis são fracas (|r| < 0,3)": max(correlacoes) < LIMITE_CORRELACAO_FRACA,
+        "nenhum cliente domina sozinho (menos de 10% do total)":
+            ind["maiores_clientes"].iloc[0] / ind["total_contratado"] < LIMITE_CLIENTE_DOMINANTE,
+        "o porte é a dimensão mais concentrada": maior_porte > maior_setor > maior_regiao,
+        "o texto de RQ1 usa quatro períodos": len(ind["medias_periodos"]) == QUANTIDADE_PERIODOS_TEXTO,
+        "o pico é anterior ao vale e à recuperação": ind["ano_pico"] < ind["ano_vale"] < ind["ano_pico_recente"],
+    }
+    falsas = [texto for texto, valida in afirmacoes.items() if not valida]
+    if falsas:
+        raise ValueError(f"O texto do artigo afirma algo que os dados não sustentam: {falsas}")
 
 
 def montar_resumo(ind: dict) -> str:
@@ -244,7 +271,7 @@ def secao_metodologia(ind: dict, relatorio: dict) -> str:
       <p>
         Os dados são o recurso <em>Operações não automáticas</em> do conjunto <em>Operações de Financiamento</em>,
         publicado pelo BNDES sob licença ODbL (BNDES, 2026), acessado em {DATA_ACESSO}. O arquivo tem
-        {num(relatorio['linhas'])} linhas e {relatorio['colunas_originais']} colunas, de
+        {num(ind['subcreditos'])} linhas e {relatorio['colunas_originais']} colunas, de
         {ind['primeira_data']:%d/%m/%Y} a {ind['ultima_data']:%d/%m/%Y}. Cada linha é um <strong>subcrédito</strong>:
         um contrato pode ter vários, com condições distintas, e a soma deles é o valor do contrato. A base reúne
         {num(ind['contratos'])} contratos, {num(ind['clientes'])} clientes (CNPJ) e {num(ind['municipios'])}
@@ -500,7 +527,8 @@ def secao_conclusao(ind: dict) -> str:
 """
 
 
-def secao_fair(ind: dict) -> str:
+def secao_fair() -> str:
+    tamanho_bruto_mb = etl.CAMINHO_BRUTO.stat().st_size / 1e6
     return f"""
     <section id="fair">
       <h2>5. Disponibilidade dos Dados e Declaração FAIR</h2>
@@ -511,7 +539,7 @@ def secao_fair(ind: dict) -> str:
             identificação de autoria, disciplina e semestre, e o link permanente da fonte original dos dados
             ({URL_FONTE}).</li>
           <li><strong>Accessible (Acessível):</strong> repositório público, dados brutos incluídos
-            ({num(ind['tamanho_bruto_mb'])} MB), sem autenticação ou credenciais; o artigo é servido pelo GitHub
+            ({num(tamanho_bruto_mb)} MB), sem autenticação ou credenciais; o artigo é servido pelo GitHub
             Pages, com layout responsivo.</li>
           <li><strong>Interoperable (Interoperável):</strong> dicionário de dados em
             <code>data/data_dictionary.md</code>; dados tratados em Parquet e CSV comprimido; relatório do
@@ -545,7 +573,8 @@ def secao_referencias() -> str:
           v. 9, n. 3, p. 90-95, 2007.</li>
         <li>MCKINNEY, W. Data structures for statistical computing in Python. In: PYTHON IN SCIENCE CONFERENCE, 9.,
           2010, Austin. <em>Proceedings</em> [...]. Austin: SciPy, 2010. p. 56-61.</li>
-        <li>PLOTLY TECHNOLOGIES INC. <em>Collaborative data science</em>. Montreal, 2015. Disponível em:
+        <li>PLOTLY TECHNOLOGIES INC. <em>Collaborative data science</em>. Montreal: Plotly Technologies Inc.,
+          2015. Disponível em:
           &lt;https://plotly.com&gt;.</li>
         <li>WASKOM, M. L. seaborn: statistical data visualization. <em>Journal of Open Source Software</em>, v. 6,
           n. 60, p. 3021, 2021.</li>
@@ -583,6 +612,7 @@ def montar_pagina(corpo: str) -> str:
 def gerar() -> str:
     df = etl.carregar_processado()
     ind = etl.calcular_indicadores(df)
+    validar_afirmacoes(ind)
     relatorio = json.loads((etl.PASTA_PROCESSADA / "relatorio_etl.json").read_text(encoding="utf-8"))
     figuras = montar_figuras(df, ind)
     corpo = "".join((
@@ -591,7 +621,7 @@ def gerar() -> str:
         secao_metodologia(ind, relatorio),
         secao_resultados(ind, figuras),
         secao_conclusao(ind),
-        secao_fair(ind),
+        secao_fair(),
         secao_referencias(),
     ))
     return montar_pagina(corpo)
