@@ -2,3 +2,4 @@ data/raw/* -text
 *.parquet binary
 *.gz binary
 *.png binary
+docs/assets/plotly.min.js binary
