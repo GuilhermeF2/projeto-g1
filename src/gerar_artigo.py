@@ -20,7 +20,17 @@ import plotly.graph_objects as go
 
 from src import etl
 from src import visualizacao as viz
-from src.formatacao import MESES_EXTENSO, NUMEROS_EXTENSO, bi, dec, dia_mes_extenso, mes_ano_extenso, num, pct
+from src.formatacao import (
+    MESES_EXTENSO,
+    NUMEROS_EXTENSO,
+    bi,
+    dec,
+    dia_mes_extenso,
+    mes_ano_extenso,
+    nome_proprio,
+    num,
+    pct,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -339,7 +349,8 @@ def secao_rq1(ind: dict, figuras: dict[str, str]) -> str:
       <p>
         A série mensal é muito irregular, e poucas operações movem o total. O mês de maior valor é
         {mes_ano_extenso(ind['mes_pico'])}, com R$ {bi(ind['valor_mes_pico'])} bilhões, e o maior cliente daquele mês,
-        {esc(ind['cliente_mes_pico'].title())}, responde sozinho por R$ {bi(ind['valor_cliente_mes_pico'])} bilhões.
+        {esc(nome_proprio(ind['cliente_mes_pico']))}, responde sozinho por
+        R$ {bi(ind['valor_cliente_mes_pico'])} bilhões.
         A média móvel suaviza esse ruído e deixa visíveis os regimes da Figura 1.
       </p>
       <figure>
@@ -384,7 +395,7 @@ def secao_rq2(ind: dict, figuras: dict[str, str]) -> str:
     setor, regiao, uf = ind["setor"], ind["regiao"], ind["uf"]
     sem_uf = linha_de(regiao, etl.SEM_UF_UNICA)["participacao"]
     maiores = ind["maiores_clientes"]
-    lista_maiores = ", ".join(f"{esc(nome.title())} (R$ {bi(valor)} bi)" for nome, valor in maiores.items())
+    lista_maiores = ", ".join(f"{esc(nome_proprio(nome))} (R$ {bi(valor)} bi)" for nome, valor in maiores.items())
     gini_texto = dec(ind["gini_clientes"], 2)
     alt_lorenz = f"Curva de Lorenz do valor contratado por cliente, com Gini de {gini_texto}"
     return f"""
@@ -461,7 +472,7 @@ def secao_rq3(ind: dict, figuras: dict[str, str]) -> str:
       <figure>
         {figuras['inovacao']}
         <figcaption>Figura 9: Valor mediano (R$ milhões), prazo de amortização mediano (meses) e juros medianos
-          (% a.a.) nas operações reembolsáveis, com e sem apoio à inovação.</figcaption>
+          (%) nas operações reembolsáveis, com e sem apoio à inovação.</figcaption>
       </figure>
       <p>
         No apoio à inovação ({pct(ind['participacao_inovacao_linhas'])} das linhas), o valor mediano é menor
@@ -482,7 +493,8 @@ def secao_resultados(ind: dict, figuras: dict[str, str]) -> str:
       <p>
         O valor total contratado na base é de R$ {bi(ind['total_contratado'])} bilhões, dos quais
         R$ {bi(ind['total_desembolsado'])} bilhões foram desembolsados ({pct(ind['taxa_execucao'])}). Como
-        {ind['ultima_data'].year} termina em {dia_mes_extenso(ind['ultima_data'])}, as comparações anuais usam
+        os dados de {ind['ultima_data'].year} terminam em {dia_mes_extenso(ind['ultima_data'])}, as comparações
+        anuais usam
         {ind['primeira_data'].year}-{fim}. Os gráficos são interativos: passe o mouse para ver os valores.
       </p>
 {secao_rq1(ind, figuras)}{secao_rq2(ind, figuras)}{secao_rq3(ind, figuras)}    </section>
@@ -515,8 +527,8 @@ def secao_conclusao(ind: dict) -> str:
         {pct(abs(sens['variacao_total']))} e deixa as conclusões praticamente iguais: o pico segue em
         {sens['ano_pico']} e o vale em {sens['ano_vale']}, o quarto trimestre passa de
         {pct(ind['participacao_quarto_trimestre'])} para {pct(sens['participacao_quarto_trimestre'])}, o Gini entre
-        clientes de {dec(ind['gini_clientes'], 3)} para {dec(sens['gini_clientes'], 3)} e a participação dos
-        clientes grandes de {pct(porte, 2)} para {pct(sens['participacao_porte_maior'], 2)}.
+        clientes vai de {dec(ind['gini_clientes'], 3)} a {dec(sens['gini_clientes'], 3)} e a participação dos
+        clientes grandes, de {pct(porte, 2)} para {pct(sens['participacao_porte_maior'], 2)}.
       </p>
       <p>
         <strong>Trabalhos futuros.</strong> Deflacionar os valores (por exemplo, pelo IPCA), incluir as operações

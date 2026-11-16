@@ -114,7 +114,7 @@
 
     <div class="abstract-box">
       <h3>Resumo</h3>
-      <p>Este estudo analisa 24.035 subcréditos de financiamentos não automáticos do Banco Nacional de Desenvolvimento Econômico e Social (BNDES), contratados entre janeiro de 2002 e setembro de 2026 e publicados como dados abertos. Foi construído um pipeline determinístico em Python (pandas e NumPy) que lê o arquivo em Windows-1252, converte tipos, padroniza categorias e sinaliza inconsistências sem descartar linhas, gravando a base tratada em formatos abertos. A análise responde a três perguntas: a evolução do valor contratado, a concentração por porte, setor, região e cliente, e a relação entre valor, prazo e juros. O valor anual passou por quatro regimes, com pico de R$ 129,5 bilhões em 2012 e vale de R$ 24,1 bilhões em 2016, e 46,9% do valor é contratado de outubro a dezembro. A concentração é elevada: clientes grandes respondem por 96,3% do valor, a infraestrutura por 60,3% e o coeficiente de Gini entre clientes é 0,86. Nas operações reembolsáveis, valor, prazo e juros se associam de forma fraca (correlação de Spearman entre -0,08 e 0,21), e o apoio à inovação tem valores e prazos menores. Os resultados são descritivos, com limitações de cobertura e de valores nominais. Código, dados e artigo seguem os princípios FAIR.</p>
+      <p>Este estudo analisa 24.035 subcréditos de financiamentos não automáticos do Banco Nacional de Desenvolvimento Econômico e Social (BNDES), contratados entre janeiro de 2002 e setembro de 2026 e publicados como dados abertos. Foi construído um pipeline determinístico em Python (pandas e NumPy) que lê o arquivo em Windows-1252, converte tipos, padroniza categorias e sinaliza inconsistências sem descartar linhas, gravando a base tratada em formatos abertos. A análise responde a três perguntas: a evolução do valor contratado, a concentração por porte, setor, região e cliente, e a relação entre valor, prazo e juros. O valor anual passou por quatro regimes, com pico de R$ 129,5 bilhões em 2012 e vale de R$ 24,1 bilhões em 2016, e 46,9% do valor é contratado de outubro a dezembro. A concentração é elevada: clientes grandes respondem por 96,3% do valor, a infraestrutura por 60,3% e o coeficiente de Gini entre clientes é 0,86. Nas operações reembolsáveis, valor, prazo e juros se associam de forma fraca (correlação de Spearman entre −0,08 e 0,21), e o apoio à inovação tem valores e prazos menores. Os resultados são descritivos, com limitações de cobertura e de valores nominais. Código, dados e artigo seguem os princípios FAIR.</p>
       <div class="keywords">
         <strong>Palavras-chave:</strong> BNDES, financiamento, dados abertos, análise exploratória, Python, princípios FAIR.
       </div>
@@ -238,7 +238,8 @@ def sinalizar_inconsistencias(df: pd.DataFrame, colunas_originais: list[str]) -&
       <p>
         O valor total contratado na base é de R$ 1.240,2 bilhões, dos quais
         R$ 964,6 bilhões foram desembolsados (77,8%). Como
-        2026 termina em 30 de setembro, as comparações anuais usam
+        os dados de 2026 terminam em 30 de setembro, as comparações
+        anuais usam
         2002-2025. Os gráficos são interativos: passe o mouse para ver os valores.
       </p>
 
@@ -269,7 +270,8 @@ def sinalizar_inconsistencias(df: pd.DataFrame, colunas_originais: list[str]) -&
       <p>
         A série mensal é muito irregular, e poucas operações movem o total. O mês de maior valor é
         dezembro de 2012, com R$ 69,3 bilhões, e o maior cliente daquele mês,
-        Norte Energia S/A, responde sozinho por R$ 16,8 bilhões.
+        Norte Energia S.A., responde sozinho por
+        R$ 16,8 bilhões.
         A média móvel suaviza esse ruído e deixa visíveis os regimes da Figura 1.
       </p>
       <figure>
@@ -338,7 +340,7 @@ def sinalizar_inconsistencias(df: pd.DataFrame, colunas_originais: list[str]) -&
       <p>
         Entre os 4.429 clientes, o coeficiente de Gini é 0,86: o 1% maior
         (44 clientes) concentra 34,9% do valor, e os dez
-        maiores, 15,5%. Os cinco maiores são Petroleo Brasileiro S A Petrobras (R$ 33,7 bi), Estado De Sao Paulo (R$ 31,5 bi), Norte Energia S/A (R$ 23,4 bi), Vale S.A. (R$ 20,4 bi), Suzano S.A. (R$ 19,7 bi). Ainda assim, nenhum cliente
+        maiores, 15,5%. Os cinco maiores são Petróleo Brasileiro S.A. (Petrobras) (R$ 33,7 bi), Estado de São Paulo (R$ 31,5 bi), Norte Energia S.A. (R$ 23,4 bi), Vale S.A. (R$ 20,4 bi), Suzano S.A. (R$ 19,7 bi). Ainda assim, nenhum cliente
         domina sozinho: o maior tem 2,7% do total.
       </p>
 
@@ -375,7 +377,7 @@ def sinalizar_inconsistencias(df: pd.DataFrame, colunas_originais: list[str]) -&
 <noscript>Este gráfico interativo precisa de JavaScript; a legenda e o texto descrevem o resultado.</noscript>
 </div>
         <figcaption>Figura 9: Valor mediano (R$ milhões), prazo de amortização mediano (meses) e juros medianos
-          (% a.a.) nas operações reembolsáveis, com e sem apoio à inovação.</figcaption>
+          (%) nas operações reembolsáveis, com e sem apoio à inovação.</figcaption>
       </figure>
       <p>
         No apoio à inovação (7,5% das linhas), o valor mediano é menor
@@ -406,8 +408,8 @@ def sinalizar_inconsistencias(df: pd.DataFrame, colunas_originais: list[str]) -&
         1,6% e deixa as conclusões praticamente iguais: o pico segue em
         2012 e o vale em 2016, o quarto trimestre passa de
         46,9% para 47,0%, o Gini entre
-        clientes de 0,857 para 0,856 e a participação dos
-        clientes grandes de 96,33% para 96,30%.
+        clientes vai de 0,857 a 0,856 e a participação dos
+        clientes grandes, de 96,33% para 96,30%.
       </p>
       <p>
         <strong>Trabalhos futuros.</strong> Deflacionar os valores (por exemplo, pelo IPCA), incluir as operações

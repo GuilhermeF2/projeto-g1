@@ -9,12 +9,15 @@ MESES_EXTENSO = (
     "janeiro", "fevereiro", "março", "abril", "maio", "junho",
     "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 )
+PALAVRAS_MINUSCULAS = frozenset({"de", "da", "do", "das", "dos", "e"})
+ACENTOS_CONHECIDOS = {"SAO": "São", "PETROLEO": "Petróleo"}
+NOMES_CONHECIDOS = {"PETROLEO BRASILEIRO S A PETROBRAS": "Petróleo Brasileiro S.A. (Petrobras)"}
 NUMEROS_EXTENSO = {1: "um", 2: "dois", 3: "três", 4: "quatro", 5: "cinco", 6: "seis", 7: "sete", 8: "oito"}
 
 
 def dec(valor: float, casas: int = 1) -> str:
-    """Número com ponto nos milhares e vírgula nos decimais."""
-    return f"{valor:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    """Número com ponto nos milhares, vírgula nos decimais e sinal de menos tipográfico (−)."""
+    return f"{valor:,.{casas}f}".replace(",", "X").replace(".", ",").replace("X", ".").replace("-", "−")
 
 
 def num(valor: float) -> str:
@@ -40,3 +43,27 @@ def mes_ano_extenso(data: date) -> str:
 
 def dia_mes_extenso(data: date) -> str:
     return f"{data.day} de {MESES_EXTENSO[data.month - 1]}"
+
+
+def nome_proprio(nome: str) -> str:
+    """Nome de cliente em maiúsculas (como vem do BNDES) em formato de texto corrido.
+
+    Mantém "de/da/do/e" em minúsculas, escreve "S/A" e "S A" como "S.A." e restaura os acentos
+    que o arquivo de origem não traz para as palavras de ACENTOS_CONHECIDOS.
+    """
+    if nome in NOMES_CONHECIDOS:
+        return NOMES_CONHECIDOS[nome]
+    palavras = nome.replace(" S A", " S.A.").replace(" S/A", " S.A.").split()
+    resultado = []
+    for posicao, palavra in enumerate(palavras):
+        if palavra in ACENTOS_CONHECIDOS:
+            resultado.append(ACENTOS_CONHECIDOS[palavra])
+        elif posicao and palavra.lower() in PALAVRAS_MINUSCULAS:
+            resultado.append(palavra.lower())
+        elif palavra == "SA":
+            resultado.append("S.A.")
+        elif palavra.endswith(".") and len(palavra) <= 4:
+            resultado.append(palavra)
+        else:
+            resultado.append(palavra.capitalize())
+    return " ".join(resultado)
