@@ -1,0 +1,4 @@
+data/raw/* -text
+*.parquet binary
+*.gz binary
+*.png binary

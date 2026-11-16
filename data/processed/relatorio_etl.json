@@ -1,0 +1,29 @@
+{
+  "linhas": 24035,
+  "colunas_originais": 34,
+  "colunas_finais": 44,
+  "contratos_distintos": 8440,
+  "clientes_distintos": 4429,
+  "periodo": [
+    "2002-01-02",
+    "2026-09-30"
+  ],
+  "placeholders_convertidos_em_nulo": {
+    "fonte_de_recurso_desembolsos": 960,
+    "instituicao_financeira_credenciada": 19964,
+    "cnpj_da_instituicao_financeira_credenciada": 19964,
+    "tipo_de_excepcionalidade": 23795,
+    "situacao_do_contrato": 268
+  },
+  "conversoes_invalidas": {},
+  "linhas_sinalizadas": {
+    "repetida": 408,
+    "desembolso_acima_contratado": 6081,
+    "outlier_valor": 174
+  },
+  "linhas_descartadas": 0,
+  "arquivo_bruto": {
+    "nome": "operacoes-financiamento-operacoes-nao-automaticas.csv",
+    "sha256": "cf92cc06ebb0f5738abb2cc50b6c85e50b472d49a0a7c9e50ccac749209a4153"
+  }
+}
