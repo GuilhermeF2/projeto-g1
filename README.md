@@ -11,10 +11,11 @@ e artigo acadêmico em HTML, sob os princípios FAIR.
 ## Identificação
 
 - **Autor:** Guilherme Felix
+- **Instituição:** Universidade LaSalle
 - **Curso:** Bacharelado em Sistemas de Informação, 6º período
 - **Disciplina:** Linguagem de Programação (Análise e Visualização de Dados com Python)
 - **Professor:** Alexandre Neves Louzada
-- **Semestre:** 2º semestre de 2026
+- **Semestre:** 2026.2
 
 ## Resumo executivo
 
