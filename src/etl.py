@@ -7,72 +7,93 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from pathlib import Path
+from typing import Final
 
 import numpy as np
 import pandas as pd
 
-RAIZ = Path(__file__).resolve().parents[1]
-CAMINHO_BRUTO = RAIZ / "data" / "raw" / "operacoes-financiamento-operacoes-nao-automaticas.csv"
-PASTA_PROCESSADA = RAIZ / "data" / "processed"
+LOGGER = logging.getLogger(__name__)
 
-CODIFICACAO = "cp1252"
-SEPARADOR = ";"
-PLACEHOLDERS = {"", "-", "----------"}
+RAIZ: Final = Path(__file__).resolve().parents[1]
+CAMINHO_BRUTO: Final = RAIZ / "data" / "raw" / "operacoes-financiamento-operacoes-nao-automaticas.csv"
+PASTA_PROCESSADA: Final = RAIZ / "data" / "processed"
 
-COLUNAS_VALOR = ["valor_contratado_reais", "valor_desembolsado_reais", "juros"]
-COLUNAS_PRAZO = ["prazo_carencia_meses", "prazo_amortizacao_meses"]
-COLUNAS_CATEGORIA = [
+CODIFICACAO: Final = "cp1252"
+SEPARADOR: Final = ";"
+PLACEHOLDERS: Final = frozenset({"", "-", "----------"})
+
+COL_VALOR: Final = "valor_contratado_reais"
+COL_DESEMBOLSO: Final = "valor_desembolsado_reais"
+COLUNAS_VALOR: Final = [COL_VALOR, COL_DESEMBOLSO, "juros"]
+COLUNAS_PRAZO: Final = ["prazo_carencia_meses", "prazo_amortizacao_meses"]
+COLUNAS_CORRELACAO: Final = [COL_VALOR, "juros", "prazo_carencia_meses", "prazo_amortizacao_meses"]
+COLUNAS_CATEGORIA: Final = [
     "uf", "fonte_de_recurso_desembolsos", "custo_financeiro", "modalidade_de_apoio", "forma_de_apoio", "produto",
     "inovacao", "area_operacional", "setor_cnae", "setor_bndes", "subsetor_bndes", "porte_do_cliente",
-    "natureza_do_cliente", "tipo_de_garantia", "tipo_de_excepcionalidade", "situacao_do_contrato", "regiao"
+    "natureza_do_cliente", "tipo_de_garantia", "tipo_de_excepcionalidade", "situacao_do_contrato", "regiao",
 ]
 
-REGIOES = {
+MODALIDADE_NAO_REEMBOLSAVEL: Final = "NÃO REEMBOLSÁVEL"
+INOVACAO_SIM: Final = "SIM"
+INOVACAO_NAO: Final = "NÃO"
+PORTES: Final = ("MICRO", "PEQUENA", "MÉDIA", "GRANDE")
+SETOR_INFRAESTRUTURA: Final = "INFRAESTRUTURA"
+SETOR_INDUSTRIA: Final = "INDUSTRIA"
+SETOR_COMERCIO_SERVICOS: Final = "COMERCIO/SERVICOS"
+SETOR_AGROPECUARIA: Final = "AGROPECUÁRIA"
+
+REGIOES: Final = {
     "Norte": ["AC", "AM", "AP", "PA", "RO", "RR", "TO"],
     "Nordeste": ["AL", "BA", "CE", "MA", "PB", "PE", "PI", "RN", "SE"],
     "Centro-Oeste": ["DF", "GO", "MS", "MT"],
     "Sudeste": ["ES", "MG", "RJ", "SP"],
     "Sul": ["PR", "RS", "SC"],
 }
-REGIAO_POR_UF = {uf: regiao for regiao, ufs in REGIOES.items() for uf in ufs}
-SEM_UF_UNICA = "Sem UF única"
-ANO_COMPLETO_FINAL = 2025
-ANO_INICIO_VALE = 2013
-ANO_INICIO_RECUPERACAO = 2020
-AMOSTRA_DISPERSAO = 3000
-COLUNAS_CORRELACAO = ["valor_contratado_reais", "juros", "prazo_carencia_meses", "prazo_amortizacao_meses"]
+REGIAO_POR_UF: Final = {uf: regiao for regiao, ufs in REGIOES.items() for uf in ufs}
+SEM_UF_UNICA: Final = "Sem UF única"
+REGIAO_PRINCIPAL: Final = "Sudeste"
+CORRECOES_AREA: Final = {"AREA DE TRANSICAO ENERGETICA E CLIMA": "AREA DE TRANSICAO ENERGETICA E CLIMATICA"}
 
-CORRECOES_AREA = {"AREA DE TRANSICAO ENERGETICA E CLIMA": "AREA DE TRANSICAO ENERGETICA E CLIMATICA"}
+ANO_COMPLETO_FINAL: Final = 2025
+PERIODOS: Final = ((2002, 2008), (2009, 2014), (2015, 2019), (2020, 2025))
+TRIMESTRE_FINAL: Final = (10, 11, 12)
+LIMIAR_TRIMESTRE_UNIFORME: Final = 0.25
+FRACAO_TOPO_CLIENTES: Final = 0.01
+AMOSTRA_DISPERSAO: Final = 3000
+SEMENTE_AMOSTRA: Final = 42
+FATOR_OUTLIER: Final = 1.5
 
 
 def hash_arquivo(caminho: Path) -> str:
+    """SHA-256 do arquivo, lido em blocos de 1 MB."""
     resumo = hashlib.sha256()
-    with open(caminho, "rb") as arquivo:
+    with caminho.open("rb") as arquivo:
         for bloco in iter(lambda: arquivo.read(1 << 20), b""):
             resumo.update(bloco)
     return resumo.hexdigest()
 
 
 def carregar_bruto(caminho: Path = CAMINHO_BRUTO) -> pd.DataFrame:
-    return pd.read_csv(
-        caminho, sep=SEPARADOR, encoding=CODIFICACAO, dtype=str, keep_default_na=False
-    )
+    """Lê o CSV original com todas as colunas como texto, sem converter valores ausentes."""
+    return pd.read_csv(caminho, sep=SEPARADOR, encoding=CODIFICACAO, dtype=str, keep_default_na=False)
 
 
-def limpar_textos(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+def limpar_textos(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Remove espaços das bordas e troca os marcadores de ausente por nulo."""
     df = df.copy()
-    colunas_texto = df.columns.tolist()
-    placeholders = {}
-    for coluna in colunas_texto:
+    marcadores = {}
+    for coluna in df.columns:
         df[coluna] = df[coluna].str.strip()
         mascara = df[coluna].isin(PLACEHOLDERS)
-        placeholders[coluna] = int(mascara.sum())
+        marcadores[coluna] = int(mascara.sum())
         df.loc[mascara, coluna] = pd.NA
-    return df, {coluna: n for coluna, n in placeholders.items() if n}
+    return df, {coluna: n for coluna, n in marcadores.items() if n}
 
 
-def converter_tipos(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+def converter_tipos(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Converte valores, prazos, data e códigos, contando o que não pôde ser convertido."""
     df = df.copy()
     invalidos = {}
     for coluna in COLUNAS_VALOR:
@@ -105,21 +126,23 @@ def criar_atributos(df: pd.DataFrame) -> pd.DataFrame:
     df["mes"] = datas.dt.month.astype("Int64")
     df["ano_mes"] = datas.dt.to_period("M").dt.to_timestamp()
     df["prazo_total_meses"] = df["prazo_carencia_meses"] + df["prazo_amortizacao_meses"]
-    df["taxa_execucao"] = df["valor_desembolsado_reais"] / df["valor_contratado_reais"]
-    df["log10_valor_contratado"] = np.log10(df["valor_contratado_reais"].where(df["valor_contratado_reais"] > 0))
+    df["taxa_execucao"] = df[COL_DESEMBOLSO] / df[COL_VALOR]
+    df["log10_valor_contratado"] = np.log10(df[COL_VALOR].where(df[COL_VALOR] > 0))
     return df
 
 
 def limites_outlier(serie: pd.Series) -> tuple[float, float]:
+    """Limites de outlier pelo critério de 1,5 × IQR."""
     q1, q3 = serie.quantile([0.25, 0.75])
     amplitude = q3 - q1
-    return q1 - 1.5 * amplitude, q3 + 1.5 * amplitude
+    return q1 - FATOR_OUTLIER * amplitude, q3 + FATOR_OUTLIER * amplitude
 
 
 def sinalizar_inconsistencias(df: pd.DataFrame, colunas_originais: list[str]) -> pd.DataFrame:
+    """Marca, sem remover, linhas repetidas, desembolso acima do contratado e outliers de valor."""
     df = df.copy()
     df["flag_linha_repetida"] = df.duplicated(subset=colunas_originais, keep="first")
-    df["flag_desembolso_acima_contratado"] = df["valor_desembolsado_reais"] > df["valor_contratado_reais"]
+    df["flag_desembolso_acima_contratado"] = df[COL_DESEMBOLSO] > df[COL_VALOR]
     inferior, superior = limites_outlier(df["log10_valor_contratado"])
     df["flag_outlier_valor"] = (df["log10_valor_contratado"] < inferior) | (df["log10_valor_contratado"] > superior)
     return df
@@ -133,8 +156,9 @@ def otimizar_tipos(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def tratar(df_bruto: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """Aplica o pipeline completo e devolve a base tratada e o relatório do tratamento."""
     colunas_originais = df_bruto.columns.tolist()
-    df, placeholders = limpar_textos(df_bruto)
+    df, marcadores = limpar_textos(df_bruto)
     df, invalidos = converter_tipos(df)
     df = padronizar_categorias(df)
     df = criar_atributos(df)
@@ -142,13 +166,13 @@ def tratar(df_bruto: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     df = otimizar_tipos(df)
 
     relatorio = {
-        "linhas": int(len(df)),
+        "linhas": len(df),
         "colunas_originais": len(colunas_originais),
-        "colunas_finais": int(df.shape[1]),
+        "colunas_finais": df.shape[1],
         "contratos_distintos": int(df["numero_do_contrato"].nunique()),
         "clientes_distintos": int(df["cnpj"].nunique()),
         "periodo": [str(df["data_da_contratacao"].min().date()), str(df["data_da_contratacao"].max().date())],
-        "placeholders_convertidos_em_nulo": placeholders,
+        "placeholders_convertidos_em_nulo": marcadores,
         "conversoes_invalidas": invalidos,
         "linhas_sinalizadas": {
             "repetida": int(df["flag_linha_repetida"].sum()),
@@ -161,11 +185,13 @@ def tratar(df_bruto: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
 
 
 def salvar(df: pd.DataFrame, relatorio: dict, pasta: Path = PASTA_PROCESSADA) -> None:
+    """Grava Parquet, CSV comprimido (cabeçalho gzip sem data) e o relatório em JSON."""
     pasta.mkdir(parents=True, exist_ok=True)
     df.to_parquet(pasta / "operacoes_tratadas.parquet", index=False)
-    df.to_csv(pasta / "operacoes_tratadas.csv.gz", index=False, compression="gzip")
-    with open(pasta / "relatorio_etl.json", "w", encoding="utf-8") as arquivo:
-        json.dump(relatorio, arquivo, ensure_ascii=False, indent=2)
+    df.to_csv(pasta / "operacoes_tratadas.csv.gz", index=False, compression={"method": "gzip", "mtime": 0})
+    (pasta / "relatorio_etl.json").write_text(
+        json.dumps(relatorio, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 def carregar_processado(pasta: Path = PASTA_PROCESSADA) -> pd.DataFrame:
@@ -173,61 +199,33 @@ def carregar_processado(pasta: Path = PASTA_PROCESSADA) -> pd.DataFrame:
 
 
 def executar(caminho_bruto: Path = CAMINHO_BRUTO, pasta: Path = PASTA_PROCESSADA) -> pd.DataFrame:
-    bruto = carregar_bruto(caminho_bruto)
-    df, relatorio = tratar(bruto)
+    LOGGER.info("Lendo %s", caminho_bruto.name)
+    df, relatorio = tratar(carregar_bruto(caminho_bruto))
     relatorio["arquivo_bruto"] = {"nome": caminho_bruto.name, "sha256": hash_arquivo(caminho_bruto)}
     salvar(df, relatorio, pasta)
     return df
 
 
 def gini(valores: pd.Series) -> float:
+    """Coeficiente de Gini; devolve NaN se não houver valores positivos."""
     ordenados = np.sort(valores.dropna().to_numpy(dtype=float))
-    n = len(ordenados)
+    if ordenados.size == 0 or ordenados.sum() <= 0:
+        return float("nan")
     acumulado = np.cumsum(ordenados)
-    return float((n + 1 - 2 * (acumulado / acumulado[-1]).sum()) / n)
+    return float((ordenados.size + 1 - 2 * (acumulado / acumulado[-1]).sum()) / ordenados.size)
 
 
 def participacao_topo(valores: pd.Series, quantidade: int) -> float:
     return float(valores.nlargest(quantidade).sum() / valores.sum())
 
 
-def resumo_anual(df: pd.DataFrame) -> pd.DataFrame:
-    return (
-        df.groupby("ano", observed=True)
-        .agg(
-            subcreditos=("numero_do_contrato", "size"),
-            contratos=("numero_do_contrato", "nunique"),
-            valor_contratado=("valor_contratado_reais", "sum"),
-            valor_desembolsado=("valor_desembolsado_reais", "sum"),
-            mediana_subcredito=("valor_contratado_reais", "median"),
-        )
-        .reset_index()
-    )
-
-
-def resumo_mensal(df: pd.DataFrame) -> pd.DataFrame:
-    mensal = df.groupby("ano_mes", observed=True)["valor_contratado_reais"].sum().reset_index()
-    mensal["media_movel_12m"] = mensal["valor_contratado_reais"].rolling(12).mean()
-    return mensal
-
-
-def resumo_por(df: pd.DataFrame, coluna: str) -> pd.DataFrame:
-    resumo = (
-        df.groupby(coluna, observed=True)
-        .agg(
-            subcreditos=("numero_do_contrato", "size"),
-            valor_contratado=("valor_contratado_reais", "sum"),
-            mediana_subcredito=("valor_contratado_reais", "median"),
-        )
-        .reset_index()
-        .sort_values("valor_contratado", ascending=False)
-    )
-    resumo["participacao"] = resumo["valor_contratado"] / resumo["valor_contratado"].sum()
-    return resumo
+def quantidade_topo(total: int, fracao: float = FRACAO_TOPO_CLIENTES) -> int:
+    """Quantos itens formam a fração de topo (no mínimo um)."""
+    return max(1, int(total * fracao))
 
 
 def nao_reembolsavel(df: pd.DataFrame) -> pd.Series:
-    return df["modalidade_de_apoio"].astype(str).str.startswith("NÃO")
+    return df["modalidade_de_apoio"].astype(str) == MODALIDADE_NAO_REEMBOLSAVEL
 
 
 def reembolsaveis(df: pd.DataFrame) -> pd.DataFrame:
@@ -242,90 +240,212 @@ def correlacao_spearman(df: pd.DataFrame) -> pd.DataFrame:
     return df[COLUNAS_CORRELACAO].astype(float).corr(method="spearman")
 
 
-def calcular_indicadores(df: pd.DataFrame) -> dict:
-    """Números citados no artigo, calculados a partir da base tratada."""
-    valor = "valor_contratado_reais"
-    anual = resumo_anual(df).set_index("ano")
-    completos = anual.loc[:ANO_COMPLETO_FINAL, "valor_contratado"]
-    completos_df = anos_completos(df)
-    mensal = completos_df.groupby("ano_mes", observed=True)[valor].sum()
-    pico_mes = mensal.idxmax()
-    cliente_pico = df[df["ano_mes"] == pico_mes].groupby("cliente", observed=True)[valor].sum().nlargest(1)
-    por_cliente = df.groupby("cnpj", observed=True)[valor].sum()
-    mes_valor = completos_df.groupby("mes", observed=True)[valor].sum()
-    mes_contagem = completos_df.groupby("mes", observed=True).size()
-    trimestre = completos_df.assign(q4=completos_df[valor].where(completos_df["mes"] >= 10, 0)).groupby("ano")[["q4", valor]].sum()
-    q4_por_ano = trimestre["q4"] / trimestre[valor]
-    sem_2012 = completos_df[completos_df["ano"] != 2012]
-    reembolsavel = reembolsaveis(df)
-    inovacao = reembolsavel.groupby("inovacao", observed=True).agg(
-        n=(valor, "size"),
-        valor_mediano=(valor, "median"),
+def valor_por_cliente(df: pd.DataFrame) -> pd.Series:
+    return df.groupby("cnpj", observed=True)[COL_VALOR].sum()
+
+
+def resumo_anual(df: pd.DataFrame) -> pd.DataFrame:
+    return (
+        df.groupby("ano", observed=True)
+        .agg(
+            subcreditos=("numero_do_contrato", "size"),
+            contratos=("numero_do_contrato", "nunique"),
+            valor_contratado=(COL_VALOR, "sum"),
+            valor_desembolsado=(COL_DESEMBOLSO, "sum"),
+            mediana_subcredito=(COL_VALOR, "median"),
+        )
+        .reset_index()
+    )
+
+
+def resumo_mensal(df: pd.DataFrame) -> pd.DataFrame:
+    mensal = df.groupby("ano_mes", observed=True)[COL_VALOR].sum().reset_index()
+    mensal["media_movel_12m"] = mensal[COL_VALOR].rolling(12).mean()
+    return mensal
+
+
+def resumo_por(df: pd.DataFrame, coluna: str) -> pd.DataFrame:
+    resumo = (
+        df.groupby(coluna, observed=True)
+        .agg(
+            subcreditos=("numero_do_contrato", "size"),
+            valor_contratado=(COL_VALOR, "sum"),
+            mediana_subcredito=(COL_VALOR, "median"),
+        )
+        .reset_index()
+        .sort_values("valor_contratado", ascending=False)
+    )
+    resumo["participacao"] = resumo["valor_contratado"] / resumo["valor_contratado"].sum()
+    return resumo
+
+
+def resumo_inovacao(df: pd.DataFrame) -> pd.DataFrame:
+    """Medianas de valor, juros e prazos por indicador de inovação, nas operações reembolsáveis."""
+    return reembolsaveis(df).groupby("inovacao", observed=True).agg(
+        n=(COL_VALOR, "size"),
+        valor_mediano=(COL_VALOR, "median"),
         juros_mediano=("juros", "median"),
         amortizacao_mediana=("prazo_amortizacao_meses", "median"),
         carencia_mediana=("prazo_carencia_meses", "median"),
     )
 
-    def periodo(inicio: int, fim: int) -> float:
-        return float(completos.loc[inicio:fim].mean())
 
+def participacao_mensal(df: pd.DataFrame) -> pd.DataFrame:
+    """Participação de cada mês do ano (nos anos completos) no valor e na contagem de subcréditos."""
+    base = anos_completos(df).groupby("mes", observed=True)[COL_VALOR].agg(valor="sum", subcreditos="size")
+    return base / base.sum()
+
+
+def participacao_trimestre_final(df: pd.DataFrame) -> float:
+    """Fração do valor contratado nos meses do trimestre final, sobre os anos do recorte."""
+    por_mes = df.groupby("mes", observed=True)[COL_VALOR].sum()
+    return float(por_mes.loc[list(TRIMESTRE_FINAL)].sum() / por_mes.sum())
+
+
+def pico_e_vale(valores_anuais: pd.Series) -> dict[str, float | int]:
+    """Pico dos anos completos, vale depois do pico e maior valor depois do vale (recuperação)."""
+    completos = valores_anuais.loc[:ANO_COMPLETO_FINAL]
+    ano_pico = int(completos.idxmax())
+    depois_do_pico = completos.loc[ano_pico + 1:]
+    ano_vale = int(depois_do_pico.idxmin())
+    depois_do_vale = completos.loc[ano_vale + 1:]
+    ano_recuperacao = int(depois_do_vale.idxmax())
     return {
-        "subcreditos": int(len(df)),
+        "ano_pico": ano_pico, "valor_pico": float(completos.loc[ano_pico]),
+        "ano_vale": ano_vale, "valor_vale": float(completos.loc[ano_vale]),
+        "ano_pico_recente": ano_recuperacao, "valor_pico_recente": float(completos.loc[ano_recuperacao]),
+    }
+
+
+def _indicadores_gerais(df: pd.DataFrame) -> dict:
+    return {
+        "subcreditos": len(df),
         "contratos": int(df["numero_do_contrato"].nunique()),
         "clientes": int(df["cnpj"].nunique()),
         "municipios": int(df["municipio_codigo"].nunique()),
         "primeira_data": df["data_da_contratacao"].min(),
         "ultima_data": df["data_da_contratacao"].max(),
-        "total_contratado": float(df[valor].sum()),
-        "total_desembolsado": float(df["valor_desembolsado_reais"].sum()),
-        "anual": anual,
-        "ano_pico": int(completos.idxmax()),
-        "valor_pico": float(completos.max()),
-        "ano_pico_recente": int(completos.loc[ANO_INICIO_RECUPERACAO:].idxmax()),
-        "valor_pico_recente": float(completos.loc[ANO_INICIO_RECUPERACAO:].max()),
-        "mediana_subcredito": float(df[valor].median()),
-        "media_subcredito": float(df[valor].mean()),
+        "total_contratado": float(df[COL_VALOR].sum()),
+        "total_desembolsado": float(df[COL_DESEMBOLSO].sum()),
+        "taxa_execucao": float(df[COL_DESEMBOLSO].sum() / df[COL_VALOR].sum()),
+        "mediana_subcredito": float(df[COL_VALOR].median()),
+        "media_subcredito": float(df[COL_VALOR].mean()),
         "tamanho_bruto_mb": CAMINHO_BRUTO.stat().st_size / 1e6,
-        "ano_vale": int(completos.loc[ANO_INICIO_VALE:].idxmin()),
-        "valor_vale": float(completos.loc[ANO_INICIO_VALE:].min()),
-        "media_2002_2008": periodo(2002, 2008),
-        "media_2009_2014": periodo(2009, 2014),
-        "media_2015_2019": periodo(2015, 2019),
-        "media_2020_2025": periodo(2020, 2025),
-        "mes_pico": pico_mes,
+    }
+
+
+def _indicadores_temporais(df: pd.DataFrame) -> dict:
+    anual = resumo_anual(df).set_index("ano")
+    marcos = pico_e_vale(anual["valor_contratado"])
+    mensal = anos_completos(df).groupby("ano_mes", observed=True)[COL_VALOR].sum()
+    mes_pico = mensal.idxmax()
+    cliente_pico = df[df["ano_mes"] == mes_pico].groupby("cliente", observed=True)[COL_VALOR].sum().nlargest(1)
+    return {
+        "anual": anual,
+        **marcos,
+        "medias_periodos": {
+            periodo: float(anual.loc[periodo[0]:periodo[1], "valor_contratado"].mean()) for periodo in PERIODOS
+        },
+        "mes_pico": mes_pico,
         "valor_mes_pico": float(mensal.max()),
         "cliente_mes_pico": str(cliente_pico.index[0]),
         "valor_cliente_mes_pico": float(cliente_pico.iloc[0]),
-        "participacao_quarto_trimestre": float(mes_valor.loc[[10, 11, 12]].sum() / mes_valor.sum()),
-        "anos_q4_acima_uniforme": int((q4_por_ano > 0.25).sum()),
-        "anos_completos": int(len(q4_por_ano)),
-        "quarto_trimestre_sem_2012": float(
-            sem_2012.loc[sem_2012["mes"] >= 10, valor].sum() / sem_2012[valor].sum()
-        ),
-        "participacao_dezembro_valor": float(mes_valor.loc[12] / mes_valor.sum()),
-        "participacao_dezembro_subcreditos": float(mes_contagem.loc[12] / mes_contagem.sum()),
+    }
+
+
+def _indicadores_sazonalidade(df: pd.DataFrame, ano_pico: int) -> dict:
+    completos = anos_completos(df)
+    por_ano = completos.assign(q4=completos[COL_VALOR].where(completos["mes"].isin(TRIMESTRE_FINAL), 0))
+    por_ano = por_ano.groupby("ano")[["q4", COL_VALOR]].sum()
+    participacao_q4_por_ano = por_ano["q4"] / por_ano[COL_VALOR]
+    meses = participacao_mensal(df)
+    return {
+        "participacao_quarto_trimestre": participacao_trimestre_final(completos),
+        "anos_q4_acima_uniforme": int((participacao_q4_por_ano > LIMIAR_TRIMESTRE_UNIFORME).sum()),
+        "anos_completos": len(participacao_q4_por_ano),
+        "quarto_trimestre_sem_ano_pico": participacao_trimestre_final(completos[completos["ano"] != ano_pico]),
+        "participacao_dezembro_valor": float(meses.loc[12, "valor"]),
+        "participacao_dezembro_subcreditos": float(meses.loc[12, "subcreditos"]),
+    }
+
+
+def _indicadores_concentracao(df: pd.DataFrame) -> dict:
+    por_cliente = valor_por_cliente(df)
+    topo = quantidade_topo(len(por_cliente))
+    return {
         "porte": resumo_por(df, "porte_do_cliente"),
         "setor": resumo_por(df, "setor_bndes"),
         "regiao": resumo_por(df, "regiao"),
         "uf": resumo_por(df, "uf"),
         "gini_clientes": gini(por_cliente),
         "top10_clientes": participacao_topo(por_cliente, 10),
-        "top1pct_clientes": participacao_topo(por_cliente, max(1, int(len(por_cliente) * 0.01))),
-        "maiores_clientes": df.groupby("cliente", observed=True)[valor].sum().nlargest(5),
-        "reembolsaveis": int(len(reembolsavel)),
-        "participacao_nao_reembolsavel_linhas": float(nao_reembolsavel(df).mean()),
-        "participacao_nao_reembolsavel_valor": float(df.loc[nao_reembolsavel(df), valor].sum() / df[valor].sum()),
+        "quantidade_topo_clientes": topo,
+        "top1pct_clientes": participacao_topo(por_cliente, topo),
+        "maiores_clientes": df.groupby("cliente", observed=True)[COL_VALOR].sum().nlargest(5),
+    }
+
+
+def _indicadores_condicoes(df: pd.DataFrame) -> dict:
+    sem_reembolso = nao_reembolsavel(df)
+    reembolsavel = df[~sem_reembolso]
+    return {
+        "reembolsaveis": len(reembolsavel),
+        "participacao_nao_reembolsavel_linhas": float(sem_reembolso.mean()),
+        "participacao_nao_reembolsavel_valor": float(df.loc[sem_reembolso, COL_VALOR].sum() / df[COL_VALOR].sum()),
         "correlacao_reembolsaveis": correlacao_spearman(reembolsavel),
         "correlacao_geral": correlacao_spearman(df),
-        "inovacao": inovacao,
-        "participacao_inovacao_linhas": float((df["inovacao"] == "SIM").mean()),
-        "taxa_execucao": float(df["valor_desembolsado_reais"].sum() / df[valor].sum()),
-        "valor_linhas_repetidas": float(df.loc[df["flag_linha_repetida"], valor].sum() / df[valor].sum()),
-        "valor_outliers": float(df.loc[df["flag_outlier_valor"], valor].sum() / df[valor].sum()),
+        "inovacao": resumo_inovacao(df),
+        "participacao_inovacao_linhas": float((df["inovacao"] == INOVACAO_SIM).mean()),
+    }
+
+
+def _indicadores_qualidade(df: pd.DataFrame) -> dict:
+    total = df[COL_VALOR].sum()
+    return {
+        "valor_linhas_repetidas": float(df.loc[df["flag_linha_repetida"], COL_VALOR].sum() / total),
+        "valor_outliers": float(df.loc[df["flag_outlier_valor"], COL_VALOR].sum() / total),
         "desembolso_acima": float(df["flag_desembolso_acima_contratado"].mean()),
     }
 
 
-if __name__ == "__main__":
+def _sensibilidade_sem_repetidas(df: pd.DataFrame, completo: dict) -> dict:
+    """Refaz os indicadores principais sem as linhas repetidas e compara com a base completa."""
+    reduzido = calcular_indicadores(df[~df["flag_linha_repetida"]], com_sensibilidade=False)
+    porte_maior = PORTES[-1]
+    participacao = completo["porte"].set_index("porte_do_cliente").loc[porte_maior, "participacao"]
+    participacao_reduzida = reduzido["porte"].set_index("porte_do_cliente").loc[porte_maior, "participacao"]
+    return {
+        "variacao_total": float(reduzido["total_contratado"] / completo["total_contratado"] - 1),
+        "participacao_quarto_trimestre": reduzido["participacao_quarto_trimestre"],
+        "gini_clientes": reduzido["gini_clientes"],
+        "participacao_porte_maior": float(participacao_reduzida),
+        "diferenca_porte_maior": float(participacao_reduzida - participacao),
+        "ano_pico": reduzido["ano_pico"],
+        "ano_vale": reduzido["ano_vale"],
+    }
+
+
+def calcular_indicadores(df: pd.DataFrame, com_sensibilidade: bool = True) -> dict:
+    """Números citados no artigo, calculados a partir da base tratada."""
+    temporais = _indicadores_temporais(df)
+    indicadores = {
+        **_indicadores_gerais(df),
+        **temporais,
+        **_indicadores_sazonalidade(df, temporais["ano_pico"]),
+        **_indicadores_concentracao(df),
+        **_indicadores_condicoes(df),
+        **_indicadores_qualidade(df),
+    }
+    if com_sensibilidade:
+        indicadores["sensibilidade_sem_repetidas"] = _sensibilidade_sem_repetidas(df, indicadores)
+    return indicadores
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     tratado = executar()
-    print(f"{len(tratado):,} linhas tratadas em {PASTA_PROCESSADA}".replace(",", "."))
+    LOGGER.info("%s linhas tratadas em %s", f"{len(tratado):,}".replace(",", "."), PASTA_PROCESSADA)
+
+
+if __name__ == "__main__":
+    main()

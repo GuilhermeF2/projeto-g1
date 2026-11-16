@@ -62,6 +62,8 @@
     table.dados { font-family: var(--font-sans); border-collapse: collapse; width: 100%; font-size: 0.9rem; margin: 1rem 0 1.4rem; }
     table.dados th, table.dados td { border-bottom: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: right; }
     table.dados th:first-child, table.dados td:first-child { text-align: left; }
+    table.dados caption { caption-side: top; text-align: left; font-weight: 600; color: var(--text-muted);
+                          padding-bottom: 0.4rem; }
     table.dados th { color: var(--primary); }
     .tabela-rolagem { overflow-x: auto; }
     @media (max-width: 768px) {
